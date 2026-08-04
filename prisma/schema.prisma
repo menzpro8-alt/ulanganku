@@ -37,3 +37,68 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model QuestionBank {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  subjectId     String
+  classGradeId  String
+  topicId       String
+  questionCount Int      @default(0)
+  questions     Json     // Store array of questions temporarily or map properly. Wait, since questions are in Question model, we can map them.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Exam {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  subjectId       String
+  classGradeId    String
+  status          String   // draft, published, active, completed
+  durationMinutes Int
+  totalPoints     Int
+  passingScore    Int
+  token           String
+  questions       ExamQuestion[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ExamQuestion {
+  id         String   @id @default(cuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId String
+  order      Int
+  points     Int
+}
+
+model Student {
+  id         String   @id @default(cuid())
+  name       String
+  classGrade String
+  avatar     String?
+  sessions   StudentExamSession[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model StudentExamSession {
+  id                   String   @id @default(cuid())
+  studentId            String
+  student              Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examId               String
+  status               String   // active, disconnected, flagged, completed, auto_submitted, not_started
+  antiCheatStrikes     Int      @default(0)
+  startTime            DateTime?
+  endTime              DateTime?
+  currentQuestionIndex Int      @default(0)
+  answers              Json     // Store StudentAnswer[]
+  score                Int?
+  alerts               Json?    // Store AntiCheatAlert[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}

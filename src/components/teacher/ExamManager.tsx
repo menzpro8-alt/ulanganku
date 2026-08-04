@@ -30,6 +30,8 @@ import {
   faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { publishExam } from '@/app/actions/exam';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -116,6 +118,7 @@ export default function ExamManager() {
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [form, setForm] = useState<ExamFormData>(emptyForm);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Filtered exams
   const filteredExams = useMemo(() => {
@@ -125,7 +128,7 @@ export default function ExamManager() {
       const matchesSubject = filterSubject === 'all' || exam.subjectId === filterSubject;
       return matchesSearch && matchesStatus && matchesSubject;
     });
-  }, [searchQuery, filterStatus, filterSubject]);
+  }, [searchQuery, filterStatus, filterSubject, refreshKey]);
 
   // Available questions for form (from mock)
   const availableQuestions = MOCK_QUESTIONS;
@@ -188,14 +191,70 @@ export default function ExamManager() {
     setForm({ ...form, selectedQuestionIds: next });
   };
 
-  const handleSaveDraft = () => {
-    // In a real app, this would call an API
-    setViewMode('list');
+  const buildExam = (status: ExamStatus): Exam => {
+    const selectedQuestions = availableQuestions.filter(q => form.selectedQuestionIds.includes(q.id));
+    return {
+      id: selectedExam?.id || `e-${Date.now()}`,
+      title: form.title,
+      description: form.description,
+      subjectId: form.subjectId,
+      classGradeId: form.classGradeId,
+      status,
+      durationMinutes: form.durationMinutes,
+      totalPoints: selectedTotalPoints,
+      passingScore: form.passingScore,
+      token: form.token,
+      questions: selectedQuestions.map((q, idx) => ({
+        id: `eq-${Date.now()}-${idx}`,
+        questionId: q.id,
+        question: q,
+        order: idx + 1,
+        points: q.points || 0,
+      })),
+      createdAt: selectedExam?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   };
 
-  const handlePublish = () => {
-    // In a real app, this would call an API
+  const handleSaveDraft = () => {
+    const newExam = buildExam('draft');
+    if (selectedExam) {
+      const idx = MOCK_EXAMS.findIndex(e => e.id === selectedExam.id);
+      if (idx !== -1) MOCK_EXAMS[idx] = newExam;
+    } else {
+      MOCK_EXAMS.push(newExam);
+    }
+    setRefreshKey(k => k + 1);
     setViewMode('list');
+    setSelectedExam(null);
+    setForm(emptyForm);
+  };
+
+  const handlePublish = async () => {
+    const newExam = buildExam('active');
+    if (selectedExam) {
+      const idx = MOCK_EXAMS.findIndex(e => e.id === selectedExam.id);
+      if (idx !== -1) MOCK_EXAMS[idx] = newExam;
+    } else {
+      MOCK_EXAMS.push(newExam);
+    }
+    
+    // Save to database permanently
+    const result = await publishExam(newExam);
+    if (result.success) {
+      toast.success('Ujian berhasil dipublikasikan secara permanen ke database!');
+      // Update ID to database ID if it was a new mock ID
+      if (result.examId && !selectedExam) {
+         newExam.id = result.examId;
+      }
+    } else {
+      toast.error(result.error || 'Gagal mempublikasikan ke database');
+    }
+
+    setRefreshKey(k => k + 1);
+    setViewMode('list');
+    setSelectedExam(null);
+    setForm(emptyForm);
   };
 
   const handleBackToList = () => {
@@ -549,9 +608,11 @@ export default function ExamManager() {
                         : 'border-cool-gray-200 hover:border-cool-gray-300 hover:bg-cool-gray-50'
                     }`}
                   >
-                    <Checkbox
+                    <input 
+                      type="checkbox" 
+                      className="mt-0.5 shrink-0 w-4 h-4 cursor-pointer pointer-events-none accent-slate-blue"
                       checked={isSelected}
-                      className="mt-0.5 shrink-0 data-[state=checked]:bg-slate-blue data-[state=checked]:border-slate-blue"
+                      readOnly
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

@@ -58,7 +58,8 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { MOCK_MONITORING, MOCK_SESSIONS, MOCK_EXAMS } from '@/lib/mock-data';
+import { getLiveMonitoringData } from '@/app/actions/monitor';
+import { getActiveExams } from '@/app/actions/exam';
 import { StudentExamSession, StudentExamStatus, MonitoringData, Exam } from '@/lib/types';
 
 // ---------------------------------------------------------------------------
@@ -208,19 +209,38 @@ function getAvatarColor(index: number): string {
 
 // ---------------------------------------------------------------------------
 // Main Component
-// ---------------------------------------------------------------------------
 export default function LiveMonitor() {
-  const [monitoring, setMonitoring] = useState<MonitoringData>(MOCK_MONITORING);
-  const [alerts, setAlerts] = useState<AntiCheatAlert[]>(INITIAL_ALERTS);
+  const [monitoring, setMonitoring] = useState<MonitoringData>({
+    examId: '',
+    examTitle: '',
+    totalStudents: 0,
+    activeStudents: 0,
+    disconnectedStudents: 0,
+    flaggedStudents: 0,
+    completedStudents: 0,
+    sessions: [],
+  });
+  const [alerts, setAlerts] = useState<AntiCheatAlert[]>([]);
   const [selectedSession, setSelectedSession] = useState<StudentExamSession | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedExamId, setSelectedExamId] = useState<string>(MOCK_MONITORING.examId);
+  const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeExams, setActiveExams] = useState<Exam[]>([]);
   const alertEndRef = useRef<HTMLDivElement>(null);
 
-  // Active exams list for dropdown
-  const activeExams = MOCK_EXAMS.filter(e => e.status === 'active' || e.status === 'published');
-  const currentExam = MOCK_EXAMS.find(e => e.id === selectedExamId);
+  // Fetch active exams on mount
+  useEffect(() => {
+    getActiveExams().then(res => {
+      if (res.success && res.data) {
+        setActiveExams(res.data);
+        if (res.data.length > 0) {
+          setSelectedExamId(res.data[0].id);
+        }
+      }
+    });
+  }, []);
+
+  const currentExam = activeExams.find(e => e.id === selectedExamId);
 
   // Auto-scroll alerts to bottom
   useEffect(() => {
@@ -229,80 +249,25 @@ export default function LiveMonitor() {
     }
   }, [alerts]);
 
-  // Simulate real-time updates for monitoring
+  const fetchData = useCallback(async () => {
+    if (!selectedExamId) return;
+    setIsRefreshing(true);
+    const res = await getLiveMonitoringData(selectedExamId);
+    if (res.success && res.data) {
+      setMonitoring(res.data);
+      setAlerts(res.data.alerts || []);
+    }
+    setIsRefreshing(false);
+  }, [selectedExamId]);
+
+  // Polling for real-time updates
   useEffect(() => {
+    fetchData(); // initial fetch
     const interval = setInterval(() => {
-      setMonitoring(prev => {
-        const sessions = [...prev.sessions];
-        if (sessions.length === 0) return prev;
-
-        const idx = Math.floor(Math.random() * sessions.length);
-        const session = { ...sessions[idx] };
-        const action = Math.random();
-
-        if (action < 0.3 && session.status === 'active') {
-          session.currentQuestionIndex = Math.min(session.currentQuestionIndex + 1, 9);
-        } else if (action < 0.4 && session.status === 'active' && session.antiCheatStrikes < 3) {
-          session.antiCheatStrikes += 1;
-          if (session.antiCheatStrikes >= 3) {
-            session.status = 'flagged';
-          }
-          const newAlert: AntiCheatAlert = {
-            id: `a-${Date.now()}`,
-            timestamp: new Date().toLocaleTimeString('id-ID', { hour12: false }),
-            studentName: session.student.name,
-            event: RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)],
-            severity: session.antiCheatStrikes >= 2 ? 'high' : 'medium',
-          };
-          setAlerts(prevAlerts => [...prevAlerts, newAlert]);
-        } else if (action < 0.45 && session.status === 'active') {
-          session.status = 'disconnected';
-        } else if (action < 0.5 && session.status === 'disconnected') {
-          session.status = 'active';
-        }
-
-        sessions[idx] = session;
-
-        const activeStudents = sessions.filter(s => s.status === 'active').length;
-        const disconnectedStudents = sessions.filter(s => s.status === 'disconnected').length;
-        const flaggedStudents = sessions.filter(s => s.status === 'flagged').length;
-        const completedStudents = sessions.filter(s => s.status === 'completed').length;
-
-        return {
-          ...prev,
-          sessions,
-          activeStudents,
-          disconnectedStudents,
-          flaggedStudents,
-          completedStudents,
-        };
-      });
-    }, 4000);
-
+      fetchData();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Fake real-time alert every 5-8 seconds
-  useEffect(() => {
-    const randomInterval = () => {
-      const delay = 5000 + Math.random() * 3000;
-      return setTimeout(() => {
-        const randomStudent = MOCK_SESSIONS[Math.floor(Math.random() * MOCK_SESSIONS.length)];
-        const newAlert: AntiCheatAlert = {
-          id: `a-rt-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour12: false }),
-          studentName: randomStudent.student.name,
-          event: RANDOM_EVENTS[Math.floor(Math.random() * RANDOM_EVENTS.length)],
-          severity: Math.random() > 0.5 ? 'high' : 'medium',
-        };
-        setAlerts(prev => [...prev, newAlert]);
-        // Re-schedule
-        randomInterval();
-      }, delay);
-    };
-    const timer = randomInterval();
-    return () => clearTimeout(timer);
-  }, []);
+  }, [fetchData]);
 
   const handleViewDetail = useCallback((session: StudentExamSession) => {
     setSelectedSession(session);

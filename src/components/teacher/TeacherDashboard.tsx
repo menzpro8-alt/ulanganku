@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useExamStore } from '@/lib/store';
 import type { AppView, ExamStatus } from '@/lib/types';
-import { MOCK_EXAMS, SUBJECTS } from '@/lib/mock-data';
+import { getDashboardStats } from '@/app/actions/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -34,23 +35,6 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-
-// ============================================================
-// Mock Chart Data
-// ============================================================
-const AVG_SCORE_DATA = [
-  { subject: 'MTK', score: 78 },
-  { subject: 'BIN', score: 85 },
-  { subject: 'IPA', score: 72 },
-  { subject: 'IPS', score: 80 },
-  { subject: 'BIG', score: 68 },
-];
-
-const QUESTION_TYPE_DATA = [
-  { name: 'Pilihan Ganda', value: 45 },
-  { name: 'PG Kompleks', value: 20 },
-  { name: 'Menjodohkan', value: 35 },
-];
 
 const CHART_COLORS = ['#5B6ABF', '#00B894', '#FDCB6E', '#FF6B6B', '#74B9FF'];
 
@@ -100,51 +84,17 @@ const STATS = [
   },
 ];
 
-// ============================================================
-// Recent Activity
-// ============================================================
-const RECENT_ACTIVITY = [
-  {
-    id: '1',
-    text: 'Soal baru ditambahkan ke Bank Soal Aljabar',
-    time: '5 menit lalu',
-    icon: faPlus,
-    iconColor: 'text-emerald-600',
-    borderColor: 'border-l-emerald-500',
-  },
-  {
-    id: '2',
-    text: 'Ujian Matematika X dimulai',
-    time: '15 menit lalu',
-    icon: faPlay,
-    iconColor: 'text-[#5B6ABF]',
-    borderColor: 'border-l-[#5B6ABF]',
-  },
-  {
-    id: '3',
-    text: 'Siswa Ahmad Rizki menyelesaikan ujian',
-    time: '30 menit lalu',
-    icon: faShieldHalved,
-    iconColor: 'text-emerald-600',
-    borderColor: 'border-l-emerald-500',
-  },
-  {
-    id: '4',
-    text: 'AI generated 5 soal baru untuk Fisika',
-    time: '1 jam lalu',
-    icon: faBolt,
-    iconColor: 'text-amber-600',
-    borderColor: 'border-l-amber-500',
-  },
-  {
-    id: '5',
-    text: 'Bank Soal Bahasa Inggris diperbarui',
-    time: '2 jam lalu',
-    icon: faBook,
-    iconColor: 'text-[#5B6ABF]',
-    borderColor: 'border-l-[#5B6ABF]',
-  },
-];
+// Function to time ago
+function timeAgo(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) return `${diffInSeconds} detik lalu`;
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} menit lalu`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} jam lalu`;
+  return `${Math.floor(diffInSeconds / 86400)} hari lalu`;
+}
 
 // ============================================================
 // Quick Actions
@@ -232,7 +182,67 @@ function PieChartTooltip({ active, payload }: { active?: boolean; payload?: Arra
 // Component
 // ============================================================
 export function TeacherDashboard() {
-  const setView = useExamStore((s) => s.setView);
+  const setView = useExamStore((state) => state.setView);
+  const [dbStats, setDbStats] = useState({
+    totalQuestions: 0,
+    activeExams: 0,
+    onlineStudents: 0,
+    avgScore: '0.0',
+    activities: [] as any[],
+    avgScoreData: [] as { subject: string, score: number }[],
+    questionTypeData: [] as { name: string, value: number }[]
+  });
+  
+  useEffect(() => {
+    getDashboardStats().then(res => {
+      if (res.success && res.data) {
+        setDbStats(res.data);
+      }
+    });
+  }, []);
+
+  const dynamicStats = [
+    {
+      label: 'Total Soal',
+      value: dbStats.totalQuestions.toString(),
+      icon: faBook,
+      iconBg: 'bg-[#5B6ABF]/10',
+      iconColor: 'text-[#5B6ABF]',
+      borderColor: 'border-l-[#5B6ABF]',
+      trend: '+0%',
+      trendUp: true,
+    },
+    {
+      label: 'Ujian Aktif',
+      value: dbStats.activeExams.toString(),
+      icon: faPlay,
+      iconBg: 'bg-emerald-50',
+      iconColor: 'text-emerald-600',
+      borderColor: 'border-l-emerald-500',
+      trend: '+0%',
+      trendUp: true,
+    },
+    {
+      label: 'Siswa Online',
+      value: dbStats.onlineStudents.toString(),
+      icon: faUsers,
+      iconBg: 'bg-amber-50',
+      iconColor: 'text-amber-600',
+      borderColor: 'border-l-amber-500',
+      trend: '+0%',
+      trendUp: true,
+    },
+    {
+      label: 'Rata-rata Nilai',
+      value: dbStats.avgScore,
+      icon: faChartBar,
+      iconBg: 'bg-sky-50',
+      iconColor: 'text-sky-600',
+      borderColor: 'border-l-sky-500',
+      trend: '+0%',
+      trendUp: true,
+    },
+  ];
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -290,8 +300,8 @@ export function TeacherDashboard() {
       </Card>
 
       {/* ===== Stats Grid ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {STATS.map((stat) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {dynamicStats.map((stat) => (
           <Card
             key={stat.label}
             className={`hover:shadow-md transition-shadow border-l-4 ${stat.borderColor}`}
@@ -334,72 +344,6 @@ export function TeacherDashboard() {
         ))}
       </div>
 
-      {/* ===== Exam Overview ===== */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-[#2D3436]">
-              Ikhtisar Ujian
-            </CardTitle>
-            <button className="text-sm text-[#5B6ABF] font-medium flex items-center gap-1 hover:underline">
-              Lihat Semua
-              <FontAwesomeIcon
-                icon={faChevronRight}
-                style={{ width: 10, height: 10 }}
-              />
-            </button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-            {MOCK_EXAMS.map((exam) => {
-              const statusCfg = STATUS_CONFIG[exam.status];
-              return (
-                <div
-                  key={exam.id}
-                  className="min-w-[260px] flex-shrink-0 rounded-xl border border-[#E2E8F0] bg-white p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h4 className="text-sm font-semibold text-[#2D3436] leading-tight line-clamp-2">
-                      {exam.title}
-                    </h4>
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${statusCfg.bg} ${statusCfg.text}`}
-                    >
-                      {exam.status === 'active' && (
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot} animate-pulse`}
-                        />
-                      )}
-                      {statusCfg.label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#636E72] mb-3">
-                    {getSubjectName(exam.subjectId)}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-[#94A3B8]">
-                    <span className="flex items-center gap-1">
-                      <FontAwesomeIcon
-                        icon={faBook}
-                        style={{ width: 11, height: 11 }}
-                      />
-                      {exam.questions.length} soal
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FontAwesomeIcon
-                        icon={faClock}
-                        style={{ width: 11, height: 11 }}
-                      />
-                      {exam.durationMinutes} min
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ===== Charts Section ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Bar Chart - Average Score per Subject */}
@@ -411,30 +355,36 @@ export function TeacherDashboard() {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={AVG_SCORE_DATA} barCategoryGap="20%">
-                  <XAxis
-                    dataKey="subject"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#636E72' }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#636E72' }}
-                    domain={[0, 100]}
-                    width={35}
-                  />
-                  <Tooltip content={<BarChartTooltip />} />
-                  <Bar
-                    dataKey="score"
-                    fill="#5B6ABF"
-                    radius={[6, 6, 0, 0]}
-                    maxBarSize={40}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {dbStats.avgScoreData.length === 0 ? (
+                <div className="w-full h-full flex items-center justify-center text-sm text-cool-gray-400">
+                  Belum ada data nilai ujian.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dbStats.avgScoreData} barCategoryGap="20%">
+                    <XAxis
+                      dataKey="subject"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: '#636E72' }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: '#636E72' }}
+                      domain={[0, 100]}
+                      width={35}
+                    />
+                    <Tooltip content={<BarChartTooltip />} />
+                    <Bar
+                      dataKey="score"
+                      fill="#5B6ABF"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -448,45 +398,53 @@ export function TeacherDashboard() {
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[240px] flex items-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={QUESTION_TYPE_DATA}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {QUESTION_TYPE_DATA.map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
-                      />
+              {dbStats.questionTypeData.length === 0 ? (
+                <div className="w-full h-full flex items-center justify-center text-sm text-cool-gray-400">
+                  Belum ada soal dibuat.
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={dbStats.questionTypeData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {dbStats.questionTypeData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<PieChartTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Legend */}
+                  <div className="space-y-1.5 shrink-0 pr-2">
+                    {dbStats.questionTypeData.map((entry, index) => (
+                      <div key={entry.name} className="flex items-center gap-2 text-xs">
+                        <span
+                          className="w-2.5 h-2.5 rounded-sm shrink-0"
+                          style={{
+                            backgroundColor:
+                              CHART_COLORS[index % CHART_COLORS.length],
+                          }}
+                        />
+                        <span className="text-[#636E72]">{entry.name}</span>
+                        <span className="font-semibold text-[#2D3436] ml-auto">
+                          {entry.value}
+                        </span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip content={<PieChartTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              {/* Legend */}
-              <div className="space-y-1.5 shrink-0 pr-2">
-                {QUESTION_TYPE_DATA.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2 text-xs">
-                    <span
-                      className="w-2.5 h-2.5 rounded-sm shrink-0"
-                      style={{
-                        backgroundColor:
-                          CHART_COLORS[index % CHART_COLORS.length],
-                      }}
-                    />
-                    <span className="text-[#636E72]">{entry.name}</span>
-                    <span className="font-semibold text-[#2D3436] ml-auto">
-                      {entry.value}
-                    </span>
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -496,37 +454,29 @@ export function TeacherDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activity */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-base font-semibold text-[#2D3436]">
-              Aktivitas Terbaru
-            </CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-semibold text-charcoal">Aktivitas Terbaru</CardTitle>
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-1">
-              {RECENT_ACTIVITY.map((activity) => (
-                <div
-                  key={activity.id}
-                  className={`flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-[#F1F5F9] transition-colors border-l-3 ${activity.borderColor}`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#F1F5F9] flex items-center justify-center shrink-0">
-                    <FontAwesomeIcon
-                      icon={activity.icon}
-                      className={activity.iconColor}
-                      style={{ width: 14, height: 14 }}
-                    />
+          <CardContent>
+            <div className="space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+              {dbStats.activities.length === 0 ? (
+                <div className="text-center py-6 text-sm text-cool-gray-400">Belum ada aktivitas.</div>
+              ) : dbStats.activities.map((activity: any, index: number) => (
+                <div key={activity.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active py-3">
+                  {/* Icon */}
+                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-50 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm relative z-10 ${activity.type === 'question' ? 'text-emerald-600' : 'text-[#5B6ABF]'}`}>
+                    <FontAwesomeIcon icon={activity.type === 'question' ? faBook : faPlay} className="text-xs" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#2D3436] truncate">
-                      {activity.text}
-                    </p>
+                  
+                  {/* Content */}
+                  <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-3 rounded-lg border bg-white shadow-sm hover:shadow-md transition-shadow ${activity.type === 'question' ? 'border-l-emerald-500' : 'border-l-[#5B6ABF]'} border-l-4`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <time className="text-[10px] font-medium text-cool-gray-400">
+                        {timeAgo(activity.time)}
+                      </time>
+                    </div>
+                    <p className="text-xs text-charcoal-light leading-snug">{activity.text}</p>
                   </div>
-                  <span className="text-xs text-[#94A3B8] whitespace-nowrap shrink-0 flex items-center gap-1">
-                    <FontAwesomeIcon
-                      icon={faClock}
-                      style={{ width: 10, height: 10 }}
-                    />
-                    {activity.time}
-                  </span>
                 </div>
               ))}
             </div>

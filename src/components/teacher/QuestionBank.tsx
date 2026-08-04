@@ -87,6 +87,26 @@ export function QuestionBank() {
     setView('teacher_question_editor');
   };
 
+  const handleDeleteQuestion = (questionId: string) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus soal ini?')) {
+      if (!selectedQuestionBank) return;
+      
+      const bank = selectedQuestionBank;
+      // Remove from the bank's questions array
+      bank.questions = bank.questions.filter((q) => q.id !== questionId);
+      bank.questionCount = bank.questions.length;
+      
+      // Also remove from global MOCK_QUESTIONS
+      const idx = MOCK_QUESTIONS.findIndex((q) => q.id === questionId);
+      if (idx !== -1) {
+        MOCK_QUESTIONS.splice(idx, 1);
+      }
+
+      // Update state reference to trigger re-render
+      setSelectedQuestionBank({ ...bank });
+    }
+  };
+
   // If a bank is selected, show its questions
   if (selectedQuestionBank) {
     const bank = selectedQuestionBank;
@@ -176,7 +196,12 @@ export function QuestionBank() {
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <Icon icon="pen-to-square" size="sm" className="text-[#636E72]" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                      >
                         <Icon icon="trash-can" size="sm" className="text-[#FF6B6B]" />
                       </Button>
                     </div>

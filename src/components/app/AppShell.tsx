@@ -103,7 +103,7 @@ export function AppShell() {
       case 'teacher_import':
         return <ImportWizard />;
       case 'teacher_ai_generator':
-        return <AIGenerator />;
+        return null;
       case 'teacher_monitor':
         return <LiveMonitor />;
       case 'teacher_reports':
@@ -241,7 +241,12 @@ export function AppShell() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
-          <div className="page-enter">{renderContent()}</div>
+          <div className="page-enter">
+            {renderContent()}
+            <div style={{ display: currentView === 'teacher_ai_generator' ? 'block' : 'none' }}>
+              <AIGenerator />
+            </div>
+          </div>
         </main>
       </div>
     </div>
