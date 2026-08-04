@@ -284,8 +284,6 @@ export default function QuestionEditor() {
     questionText,
     options,
     matchingPairs,
-    keywords,
-    essayAnswer,
     setView,
   ]);
 

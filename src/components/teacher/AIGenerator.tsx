@@ -698,7 +698,7 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
                     {aiQuestionTypes.length === QUESTION_TYPE_CARDS.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
                   </Button>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {QUESTION_TYPE_CARDS.map(({ type, icon, label, subtitle }) => {
                     const isSelected = aiQuestionTypes.includes(type);
                     return (
@@ -822,7 +822,7 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
                 </div>
               ) : (
                 <>
-                  <ScrollArea className="flex-1 max-h-[calc(100vh-340px)]">
+                  <ScrollArea className="flex-1 max-h-[500px] lg:max-h-[calc(100vh-340px)]">
                     <div className="space-y-3 pr-3">
                       {generatedQuestions.map((q, index) => {
                         const isCollapsed = collapsedQuestions.has(q.tempId);
