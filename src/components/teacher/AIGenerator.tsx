@@ -148,36 +148,22 @@ export default function AIGenerator() {
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
+      const diff = mixedDifficulty ? 'sedang' : aiDifficulty;
+      const types = requestedTypes.join(',');
 
-      const typeLabels: Record<QuestionType, string> = {
-        pilihan_ganda: 'Pilihan Ganda (single choice with options A-E)',
-        pilihan_ganda_kompleks: 'Pilihan Ganda Kompleks (multiple correct answers with options A-E)',
-        menjodohkan: 'Menjodohkan (matching pairs - left premise to right response)',
-      };
+      // Compact prompt — schema legend keeps context short to avoid token cutoff
+      const prompt = `Buat ${clampedCount} soal pendidikan dalam Bahasa Indonesia.
+Mapel: ${subjectName} | Kelas: ${gradeName} | Topik: ${topicName} | Kesulitan: ${diff}
+Tipe soal (distribusikan merata): ${types}
 
-      const typesDescription = requestedTypes.map(t => `${t} (${typeLabels[t as QuestionType]})`).join(', ');
+ATURAN: Semua soal WAJIB hanya tentang ${subjectName} - ${topicName}. Jika melenceng = gagal.
 
-      const prompt = `Generate ${clampedCount} Indonesian education questions with the following specifications:
-- Subject: ${subjectName}
-- Class/Grade: ${gradeName}
-- Topic: ${topicName}
-- Difficulty: ${mixedDifficulty ? 'sedang' : aiDifficulty}
-- Question Types to include: ${typesDescription}
+Balas HANYA JSON array, tanpa markdown. Schema per tipe:
+- pilihan_ganda: {"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":10}
+- pilihan_ganda_kompleks: sama seperti pilihan_ganda tapi isCorrect=true boleh lebih dari 1, "points":15
+- menjodohkan: {"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."}],"points":20}
 
-STRICT RULE: The questions and answers MUST ONLY be about the specified Subject (${subjectName}) and Topic (${topicName}). If you generate questions about any other unrelated subject, it is a critical failure. All generated content must correctly match the subject!
-
-Return ONLY a valid JSON array (no markdown, no code blocks). Each element must be an object with a "type" field indicating the question type. Depending on the "type", the structure must be:
-
-For type "pilihan_ganda":
-{"type": "pilihan_ganda", "text": "question text", "difficulty": "${mixedDifficulty ? 'sedang' : aiDifficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": false}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 10}
-
-For type "pilihan_ganda_kompleks":
-{"type": "pilihan_ganda_kompleks", "text": "question text", "difficulty": "${mixedDifficulty ? 'sedang' : aiDifficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": true}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 15}
-
-For type "menjodohkan":
-{"type": "menjodohkan", "text": "question text", "difficulty": "${mixedDifficulty ? 'sedang' : aiDifficulty}", "matchingPairs": [{"premise": "left item", "response": "right item"}, {"premise": "left item 2", "response": "right item 2"}], "points": 20}
-
-Try to distribute the ${clampedCount} questions among the requested types: ${requestedTypes.join(', ')}. All questions must be in Bahasa Indonesia and appropriate for the specified grade level. Generate exactly ${clampedCount} questions.`;
+Generate tepat ${clampedCount} soal.`;
 
       
       let result;
@@ -215,13 +201,6 @@ Try to distribute the ${clampedCount} questions among the requested types: ${req
                 id: `${id}-p${pi}`,
               })
             ),
-            shortAnswerKeywords: (
-              q.shortAnswerKeywords as AIGeneratedQuestion['shortAnswerKeywords']
-            )?.map((kw, ki) => ({
-              ...kw,
-              id: `${id}-k${ki}`,
-            })),
-            essayReferenceAnswer: q.essayReferenceAnswer as string | undefined,
             points: (q.points as number) || 10,
             isSelected: true,
           };
@@ -254,36 +233,21 @@ Try to distribute the ${clampedCount} questions among the requested types: ${req
         await window.puter.auth.signIn();
       }
       
-      const typeLabels: Record<QuestionType, string> = {
-        pilihan_ganda: 'Pilihan Ganda (single choice with options A-E)',
-        pilihan_ganda_kompleks: 'Pilihan Ganda Kompleks (multiple correct answers with options A-E)',
-        menjodohkan: 'Menjodohkan (matching pairs - left premise to right response)',
-      };
-      
-
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
+      const diff = question.difficulty;
+      const typ = question.type;
 
-      const prompt = `Generate 1 Indonesian education question with the following specifications:
-- Subject: ${subjectName}
-- Class/Grade: ${gradeName}
-- Topic: ${topicName}
-- Difficulty: ${question.difficulty}
-- Question Type: ${question.type} (${typeLabels[question.type]})
+      // Compact single-question reroll prompt
+      const prompt = `Buat 1 soal pendidikan Bahasa Indonesia tipe "${typ}".
+Mapel: ${subjectName} | Kelas: ${gradeName} | Topik: ${topicName} | Kesulitan: ${diff}
+ATURAN: Soal WAJIB tentang ${subjectName} - ${topicName}.
 
-STRICT RULE: The questions and answers MUST ONLY be about the specified Subject (${subjectName}) and Topic (${topicName}). If you generate questions about any other unrelated subject, it is a critical failure. All generated content must correctly match the subject!
-
-Return ONLY a valid JSON array containing exactly 1 object with a "type" field indicating the question type. Depending on the "type", the structure must be:
-
-For type "pilihan_ganda":
-{"type": "pilihan_ganda", "text": "question text", "difficulty": "${question.difficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": false}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 10}
-
-For type "pilihan_ganda_kompleks":
-{"type": "pilihan_ganda_kompleks", "text": "question text", "difficulty": "${question.difficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": true}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 15}
-
-For type "menjodohkan":
-{"type": "menjodohkan", "text": "question text", "difficulty": "${question.difficulty}", "matchingPairs": [{"premise": "left item", "response": "right item"}], "points": 20}
+Balas HANYA JSON array berisi 1 objek. Schema:
+${typ === 'pilihan_ganda' ? `{"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":10}` : ''}
+${typ === 'pilihan_ganda_kompleks' ? `{"type":"pilihan_ganda_kompleks","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":true},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":15}` : ''}
+${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."}],"points":20}` : ''}
 `;
 
       
@@ -320,13 +284,6 @@ For type "menjodohkan":
               id: `${id}-p${pi}`,
             })
           ),
-          shortAnswerKeywords: (
-            q.shortAnswerKeywords as AIGeneratedQuestion['shortAnswerKeywords']
-          )?.map((kw, ki) => ({
-            ...kw,
-            id: `${id}-k${ki}`,
-          })),
-          essayReferenceAnswer: q.essayReferenceAnswer as string | undefined,
           points: (q.points as number) || 10,
           isSelected: true,
         };
@@ -397,28 +354,7 @@ For type "menjodohkan":
     []
   );
 
-  const handleUpdateKeyword = useCallback(
-    (qIndex: number, kwIndex: number, keyword: string) => {
-      setGeneratedQuestions(prev =>
-        prev.map((q, i) => {
-          if (i !== qIndex || !q.shortAnswerKeywords) return q;
-          return {
-            ...q,
-            shortAnswerKeywords: q.shortAnswerKeywords.map((kw, ki) =>
-              ki === kwIndex ? { ...kw, keyword } : kw
-            ),
-          };
-        })
-      );
-    },
-    []
-  );
 
-  const handleUpdateEssayRef = useCallback((qIndex: number, essayReferenceAnswer: string) => {
-    setGeneratedQuestions(prev =>
-      prev.map((q, i) => (i === qIndex ? { ...q, essayReferenceAnswer } : q))
-    );
-  }, []);
 
   const persistToMockData = useCallback((selected: AIGeneratedQuestion[], draft: boolean) => {
     const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
@@ -436,8 +372,6 @@ For type "menjodohkan":
       points: q.points,
       options: q.options,
       matchingPairs: q.matchingPairs,
-      shortAnswer: q.shortAnswerKeywords?.map(kw => kw.keyword).join(', '),
-      essayReferenceAnswer: q.essayReferenceAnswer,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }));
@@ -1094,37 +1028,7 @@ For type "menjodohkan":
                                     </div>
                                   )}
 
-                                  {q.type === 'isian_singkat' && q.shortAnswerKeywords && (
-                                    <div className="space-y-2">
-                                      <p className="text-[11px] font-semibold" style={{ color: '#636e72' }}>
-                                        Kata Kunci Jawaban
-                                      </p>
-                                      {q.shortAnswerKeywords.map((kw, ki) => (
-                                        <div key={kw.id || ki} className="flex items-center gap-2">
-                                          <Input
-                                            value={kw.keyword}
-                                            onChange={e =>
-                                              handleUpdateKeyword(index, ki, e.target.value)
-                                            }
-                                            className="text-sm h-8"
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
 
-                                  {q.type === 'essay' && (
-                                    <div className="space-y-2">
-                                      <p className="text-[11px] font-semibold" style={{ color: '#636e72' }}>
-                                        Jawaban Referensi
-                                      </p>
-                                      <Textarea
-                                        value={q.essayReferenceAnswer || ''}
-                                        onChange={e => handleUpdateEssayRef(index, e.target.value)}
-                                        className="text-sm min-h-[60px]"
-                                      />
-                                    </div>
-                                  )}
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>

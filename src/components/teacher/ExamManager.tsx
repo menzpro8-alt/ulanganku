@@ -93,6 +93,7 @@ interface ExamFormData {
   classGradeId: string;
   durationMinutes: number;
   passingScore: number;
+  token: string;
   selectedQuestionIds: string[];
 }
 
@@ -103,6 +104,7 @@ const emptyForm: ExamFormData = {
   classGradeId: '',
   durationMinutes: 60,
   passingScore: 60,
+  token: '',
   selectedQuestionIds: [],
 };
 
@@ -157,6 +159,7 @@ export default function ExamManager() {
       classGradeId: exam.classGradeId,
       durationMinutes: exam.durationMinutes,
       passingScore: exam.passingScore,
+      token: exam.token,
       selectedQuestionIds: exam.questions.map(eq => eq.questionId),
     });
     setSelectedExam(exam);
@@ -171,6 +174,7 @@ export default function ExamManager() {
       classGradeId: exam.classGradeId,
       durationMinutes: exam.durationMinutes,
       passingScore: exam.passingScore,
+      token: exam.token,
       selectedQuestionIds: exam.questions.map(eq => eq.questionId),
     });
     setSelectedExam(null);
@@ -498,6 +502,17 @@ export default function ExamManager() {
                   max={100}
                 />
               </div>
+              <div>
+                <Label htmlFor="token" className="text-sm font-medium text-charcoal mb-1.5 block">Token Ujian</Label>
+                <Input
+                  id="token"
+                  value={form.token}
+                  onChange={(e) => setForm({ ...form, token: e.target.value.toUpperCase() })}
+                  className="border-cool-gray-200 uppercase"
+                  placeholder="Contoh: MAT123"
+                  maxLength={6}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -585,7 +600,7 @@ export default function ExamManager() {
           <Button
             onClick={handlePublish}
             className="bg-gradient-to-r from-[#5B6ABF] to-[#4554A0] hover:from-[#4F5AB0] hover:to-[#3D4A90] text-white"
-            disabled={!form.title.trim() || form.selectedQuestionIds.length === 0}
+            disabled={!form.title.trim() || !form.token.trim() || form.selectedQuestionIds.length === 0}
           >
             <FontAwesomeIcon icon={faPaperPlane} className="text-xs mr-1.5" />
             Publikasikan
@@ -611,9 +626,14 @@ export default function ExamManager() {
             <h2 className="text-xl font-semibold text-charcoal truncate">{selectedExam.title}</h2>
             <p className="text-sm text-charcoal-light">{selectedExam.description}</p>
           </div>
-          <Badge className={`border-0 text-xs ${statusConfig.bg} ${statusConfig.text} ${statusConfig.pulse ? 'animate-pulse' : ''}`}>
-            {statusConfig.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs bg-slate-blue/10 text-slate-blue border-slate-blue/30 font-mono">
+              Token: {selectedExam.token}
+            </Badge>
+            <Badge className={`border-0 text-xs ${statusConfig.bg} ${statusConfig.text} ${statusConfig.pulse ? 'animate-pulse' : ''}`}>
+              {statusConfig.label}
+            </Badge>
+          </div>
         </div>
 
         {/* Info Cards */}

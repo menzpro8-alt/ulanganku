@@ -69,31 +69,6 @@ function generateFallbackQuestions(
         points: 20,
         isSelected: true,
       });
-    } else if (qType === 'isian_singkat') {
-      questions.push({
-        id,
-        tempId,
-        type: 'isian_singkat',
-        text: `Soal ${topicLabel} ${difficulty} #${i + 1}: Isilah jawaban singkat untuk pertanyaan tentang ${topicLabel}.`,
-        difficulty,
-        shortAnswerKeywords: [
-          { id: `${id}-k1`, keyword: 'jawaban kunci 1' },
-          { id: `${id}-k2`, keyword: 'jawaban kunci 2' },
-        ],
-        points: difficulty === 'mudah' ? 5 : difficulty === 'sedang' ? 10 : 15,
-        isSelected: true,
-      });
-    } else {
-      questions.push({
-        id,
-        tempId,
-        type: 'essay',
-        text: `Soal ${topicLabel} ${difficulty} #${i + 1}: Jelaskan secara rinci tentang ${topicLabel} dan berikan contoh konkrit.`,
-        difficulty,
-        essayReferenceAnswer: `Jawaban referensi untuk soal essay tentang ${topicLabel}. Sertakan penjelasan lengkap dan contoh yang relevan.`,
-        points: difficulty === 'mudah' ? 15 : difficulty === 'sedang' ? 20 : 30,
-        isSelected: true,
-      });
     }
   }
 
@@ -118,8 +93,6 @@ export async function POST(request: NextRequest) {
       pilihan_ganda: 'Pilihan Ganda (single choice with options A-E)',
       pilihan_ganda_kompleks: 'Pilihan Ganda Kompleks (multiple correct answers with options A-E)',
       menjodohkan: 'Menjodohkan (matching pairs - left premise to right response)',
-      isian_singkat: 'Isian Singkat (short answer with keyword matching)',
-      essay: 'Essay / Uraian (open-ended with reference answer)',
     };
 
     const requestedTypes: QuestionType[] = questionTypes && questionTypes.length > 0 ? questionTypes : ['pilihan_ganda'];
@@ -132,24 +105,18 @@ export async function POST(request: NextRequest) {
 - Difficulty: ${difficulty}
 - Question Types to include: ${typesDescription}
 
-Return ONLY a valid JSON array (no markdown, no code blocks). Each element must be an object with a "type" field indicating the question type. Depending on the "type", the structure must be:
+Return ONLY a valid JSON array. DO NOT wrap in \`\`\`json markdown blocks. NO explanations. Each element must be an object with a "type" field.
 
 For type "pilihan_ganda":
-{"type": "pilihan_ganda", "text": "question text", "difficulty": "${difficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": false}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 10}
+{"type":"pilihan_ganda","text":"question","difficulty":"${difficulty}","options":[{"label":"A","text":"opt","isCorrect":false},{"label":"B","text":"opt","isCorrect":true}],"points":10}
 
 For type "pilihan_ganda_kompleks":
-{"type": "pilihan_ganda_kompleks", "text": "question text", "difficulty": "${difficulty}", "options": [{"label": "A", "text": "option text", "isCorrect": true}, {"label": "B", "text": "option text", "isCorrect": true}, {"label": "C", "text": "option text", "isCorrect": false}, {"label": "D", "text": "option text", "isCorrect": false}, {"label": "E", "text": "option text", "isCorrect": false}], "points": 15}
+{"type":"pilihan_ganda_kompleks","text":"question","difficulty":"${difficulty}","options":[{"label":"A","text":"opt","isCorrect":true},{"label":"B","text":"opt","isCorrect":true}],"points":15}
 
 For type "menjodohkan":
-{"type": "menjodohkan", "text": "question text", "difficulty": "${difficulty}", "matchingPairs": [{"premise": "left item", "response": "right item"}, {"premise": "left item 2", "response": "right item 2"}, {"premise": "left item 3", "response": "right item 3"}, {"premise": "left item 4", "response": "right item 4"}], "points": 20}
+{"type":"menjodohkan","text":"question","difficulty":"${difficulty}","matchingPairs":[{"premise":"left","response":"right"},{"premise":"left2","response":"right2"}],"points":20}
 
-For type "isian_singkat":
-{"type": "isian_singkat", "text": "question text", "difficulty": "${difficulty}", "shortAnswer": "exact short answer", "points": 10}
-
-For type "essay":
-{"type": "essay", "text": "question text", "difficulty": "${difficulty}", "essayReferenceAnswer": "reference answer text", "points": 25}
-
-Try to distribute the ${clampedCount} questions among the requested types: ${requestedTypes.join(', ')}. All questions must be in Bahasa Indonesia and appropriate for the specified grade level. Generate exactly ${clampedCount} questions.`;
+All questions must be in Bahasa Indonesia and appropriate for the specified grade level. Generate exactly ${clampedCount} questions.`;
 
     try {
       const result = await puter.ai.chat(
@@ -209,13 +176,6 @@ Try to distribute the ${clampedCount} questions among the requested types: ${req
                 id: `${id}-p${pi}`,
               })
             ),
-            shortAnswerKeywords: (
-              q.shortAnswerKeywords as AIGeneratedQuestion['shortAnswerKeywords']
-            )?.map((kw, ki) => ({
-              ...kw,
-              id: `${id}-k${ki}`,
-            })),
-            essayReferenceAnswer: q.essayReferenceAnswer as string | undefined,
             points: (q.points as number) || 10,
             isSelected: true,
           };

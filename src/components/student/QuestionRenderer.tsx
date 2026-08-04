@@ -6,11 +6,8 @@ import {
   faCircleDot,
   faSquareCheck,
   faRightLeft,
-  faFont,
-  faAlignLeft,
   faCheck,
   faCircleInfo,
-  faLightbulb,
   faRotateLeft,
 } from '@fortawesome/free-solid-svg-icons';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -52,6 +49,15 @@ function SingleChoiceRenderer({
 }: QuestionRendererProps) {
   const selectedOptionId = answer?.selectedOptionIds?.[0] ?? '';
 
+  const shuffledOptions = useMemo(() => {
+    if (!question.options) return [];
+    const shuffled = [...question.options].sort(() => Math.random() - 0.5);
+    return shuffled.map((opt, i) => ({
+      ...opt,
+      label: String.fromCharCode(65 + i)
+    }));
+  }, [question.options]);
+
   const handleSelect = (value: string) => {
     onAnswer({
       questionId: question.id,
@@ -63,7 +69,7 @@ function SingleChoiceRenderer({
   return (
     <div className="space-y-3">
       <RadioGroup value={selectedOptionId} onValueChange={handleSelect}>
-        {question.options?.map(option => {
+        {shuffledOptions.map(option => {
           const isSelected = selectedOptionId === option.id;
           return (
             <label
@@ -122,6 +128,15 @@ function MultiSelectRenderer({
 }: QuestionRendererProps) {
   const selectedOptionIds = answer?.selectedOptionIds ?? [];
 
+  const shuffledOptions = useMemo(() => {
+    if (!question.options) return [];
+    const shuffled = [...question.options].sort(() => Math.random() - 0.5);
+    return shuffled.map((opt, i) => ({
+      ...opt,
+      label: String.fromCharCode(65 + i)
+    }));
+  }, [question.options]);
+
   const handleToggle = (optionId: string) => {
     const newSelected = selectedOptionIds.includes(optionId)
       ? selectedOptionIds.filter(id => id !== optionId)
@@ -147,7 +162,7 @@ function MultiSelectRenderer({
         )}
       </div>
 
-      {question.options?.map(option => {
+      {shuffledOptions.map(option => {
         const isSelected = selectedOptionIds.includes(option.id);
         return (
           <div
@@ -331,139 +346,6 @@ function MatchingPairsRenderer({
 }
 
 // ============================================================
-// Short Answer Renderer
-// ============================================================
-function ShortAnswerRenderer({
-  question,
-  answer,
-  onAnswer,
-}: QuestionRendererProps) {
-  const currentValue = answer?.shortAnswer ?? '';
-  const maxChars = 200;
-
-  const handleChange = (value: string) => {
-    if (value.length <= maxChars) {
-      onAnswer({
-        questionId: question.id,
-        type: 'isian_singkat',
-        shortAnswer: value,
-      });
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="relative">
-        <input
-          type="text"
-          value={currentValue}
-          onChange={(e) => handleChange(e.target.value)}
-          placeholder="Ketik jawaban Anda..."
-          className="w-full h-14 text-base bg-transparent border-0 border-b-2 border-cool-gray-300 focus:border-slate-blue focus:outline-none transition-colors px-1 py-3 text-charcoal placeholder:text-cool-gray-400"
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-charcoal-light flex items-center gap-1.5">
-          <FontAwesomeIcon icon={faCircleInfo} className="text-cool-gray-400 text-[10px]" />
-          Ketik jawaban dengan tepat
-        </span>
-        <span className={`text-xs ${
-          currentValue.length > maxChars * 0.9
-            ? 'text-coral font-semibold'
-            : currentValue.length > maxChars * 0.7
-            ? 'text-amber-500'
-            : 'text-cool-gray-400'
-        }`}>
-          {currentValue.length}/{maxChars}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Essay Renderer
-// ============================================================
-function EssayRenderer({
-  question,
-  answer,
-  onAnswer,
-}: QuestionRendererProps) {
-  const currentValue = answer?.essayAnswer ?? '';
-  const [showTips, setShowTips] = useState(false);
-  const MAX_CHARS = 2000;
-
-  const handleChange = (value: string) => {
-    if (value.length <= MAX_CHARS) {
-      onAnswer({
-        questionId: question.id,
-        type: 'essay',
-        essayAnswer: value,
-      });
-    }
-  };
-
-  const wordCount = currentValue.trim() ? currentValue.trim().split(/\s+/).length : 0;
-
-  const charColorClass = currentValue.length > MAX_CHARS * 0.9
-    ? 'text-coral font-semibold'
-    : currentValue.length > MAX_CHARS * 0.7
-    ? 'text-amber-500'
-    : 'text-charcoal-light';
-
-  return (
-    <div className="space-y-3">
-      <Textarea
-        value={currentValue}
-        onChange={(e) => handleChange(e.target.value)}
-        placeholder="Tulis jawaban Anda secara lengkap..."
-        className="min-h-[200px] text-base border-cool-gray-200 focus-visible:border-slate-blue focus-visible:ring-slate-blue/20 resize-y rounded-xl"
-      />
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Word count */}
-          <span className="text-xs text-charcoal-light">
-            {wordCount} kata
-          </span>
-          {/* Character counter */}
-          <span className={`text-xs ${charColorClass}`}>
-            {currentValue.length}/{MAX_CHARS} karakter
-          </span>
-        </div>
-
-        {/* Formatting tips toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowTips(!showTips)}
-          className={`h-7 text-xs ${showTips ? 'text-slate-blue' : 'text-charcoal-light hover:text-slate-blue'}`}
-        >
-          <FontAwesomeIcon icon={faLightbulb} className="text-[10px] mr-1.5" />
-          Tips Format
-        </Button>
-      </div>
-
-      {/* Formatting Tips (collapsible) */}
-      {showTips && (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 space-y-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-700">
-            <FontAwesomeIcon icon={faLightbulb} className="text-amber-500" />
-            Tips Menulis Jawaban Essay
-          </div>
-          <ul className="text-xs text-amber-600/80 space-y-1 pl-5 list-disc">
-            <li>Jawablah dengan kalimat yang lengkap dan jelas</li>
-            <li>Mulai dengan poin utama, lalu berikan penjelasan</li>
-            <li>Gunakan contoh untuk mendukung argumen Anda</li>
-            <li>Periksa kembali ejaan dan tata bahasa</li>
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
 // Main Question Renderer
 // ============================================================
 export default function QuestionRenderer({
@@ -492,22 +374,6 @@ export default function QuestionRenderer({
       case 'menjodohkan':
         return (
           <MatchingPairsRenderer
-            question={question}
-            answer={answer}
-            onAnswer={onAnswer}
-          />
-        );
-      case 'isian_singkat':
-        return (
-          <ShortAnswerRenderer
-            question={question}
-            answer={answer}
-            onAnswer={onAnswer}
-          />
-        );
-      case 'essay':
-        return (
-          <EssayRenderer
             question={question}
             answer={answer}
             onAnswer={onAnswer}

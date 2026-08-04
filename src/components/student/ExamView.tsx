@@ -47,8 +47,15 @@ export default function ExamView() {
   } = useExamStore();
 
   const exam = MOCK_EXAMS[0];
-  const questions = exam.questions.map(eq => eq.question);
-  const currentQuestion = questions[currentQuestionIndex];
+  const [shuffledQuestions, setShuffledQuestions] = useState<typeof exam.questions[0]['question'][]>([]);
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
+  // Initialize shuffled questions on mount
+  useEffect(() => {
+    const rawQuestions = exam.questions.map(eq => eq.question);
+    const shuffled = [...rawQuestions].sort(() => Math.random() - 0.5);
+    setShuffledQuestions(shuffled);
+  }, [exam]);
 
   // Timer state
   const [timeLeft, setTimeLeft] = useState(exam.durationMinutes * 60);
@@ -56,11 +63,32 @@ export default function ExamView() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const totalQuestions = questions.length;
+  const totalQuestions = shuffledQuestions.length;
   const answeredCount = Array.from(studentAnswers.keys()).filter(qId =>
-    questions.some(q => q.id === qId)
+    shuffledQuestions.some(q => q.id === qId)
   ).length;
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Webcam Proctoring
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(s => {
+          stream = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+          }
+        })
+        .catch(err => console.error("Webcam access denied", err));
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -81,6 +109,10 @@ export default function ExamView() {
     if (isSubmitted) return;
     setIsSubmitted(true);
     if (timerRef.current) clearInterval(timerRef.current);
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(console.error);
+    }
 
     if (studentSession) {
       setStudentSession({
@@ -154,7 +186,7 @@ export default function ExamView() {
   if (!currentQuestion) return null;
 
   // Question navigator item
-  const renderNavCircle = (q: typeof questions[0], index: number, isMobile = false) => {
+  const renderNavCircle = (q: NonNullable<typeof currentQuestion>, index: number, isMobile = false) => {
     const isAnswered = studentAnswers.has(q.id);
     const isCurrent = index === currentQuestionIndex;
     const isFlagged = flaggedQuestions.has(q.id);
@@ -188,9 +220,14 @@ export default function ExamView() {
   };
 
   return (
-    <div className="min-h-screen bg-cool-gray flex flex-col">
+    <div className="min-h-screen bg-cool-gray flex flex-col relative">
       {/* Anti-Cheat Overlay */}
       <AntiCheatOverlay />
+
+      {/* Webcam Preview */}
+      <div className="fixed bottom-4 right-4 z-50 w-32 h-24 bg-black rounded-lg overflow-hidden border-2 border-slate-blue shadow-lg">
+        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+      </div>
 
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-white border-b border-cool-gray-200 shadow-sm">
@@ -271,14 +308,14 @@ export default function ExamView() {
         {/* Question Navigation - Desktop: Vertical strip on left */}
         <div className="hidden md:flex flex-col items-center gap-2 p-4 w-[60px] shrink-0">
           <span className="text-[10px] font-medium text-charcoal-light mb-1 uppercase tracking-wider">Soal</span>
-          {questions.map((q, index) => renderNavCircle(q, index))}
+          {shuffledQuestions.map((q, index) => renderNavCircle(q, index))}
         </div>
 
         {/* Question Content Area */}
         <div className="flex-1 py-6 px-4 sm:px-6">
           {/* Mobile Question Navigation - Horizontal scrollable */}
           <div className="md:hidden flex items-center gap-1.5 mb-4 overflow-x-auto pb-2 custom-scrollbar">
-            {questions.map((q, index) => renderNavCircle(q, index, true))}
+            {shuffledQuestions.map((q, index) => renderNavCircle(q, index, true))}
           </div>
 
           {/* Question Header */}

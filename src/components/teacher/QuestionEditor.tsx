@@ -47,7 +47,6 @@ import {
   Difficulty,
   QuestionOption,
   MatchingPair,
-  ShortAnswerKeyword,
   QUESTION_TYPE_LABELS,
   DIFFICULTY_LABELS,
 } from '@/lib/types';
@@ -152,24 +151,10 @@ export default function QuestionEditor() {
     { id: uid(), premise: '', response: '' },
   ]);
 
-  const [keywords, setKeywords] = useState<ShortAnswerKeyword[]>([
-    { id: uid(), keyword: '' },
-  ]);
-
-  const [essayAnswer, setEssayAnswer] = useState('');
-
   // ---- Derived data ----
   const filteredTopics = useMemo(
     () => (subjectId ? TOPICS.filter((t) => t.subjectId === subjectId) : []),
     [subjectId]
-  );
-
-  const essayWordCount = useMemo(
-    () =>
-      essayAnswer.trim() === ''
-        ? 0
-        : essayAnswer.trim().split(/\s+/).length,
-    [essayAnswer]
   );
 
   // ---- Handlers ----
@@ -190,10 +175,6 @@ export default function QuestionEditor() {
           { id: uid(), premise: '', response: '' },
           { id: uid(), premise: '', response: '' },
         ]);
-      } else if (type === 'isian_singkat') {
-        setKeywords([{ id: uid(), keyword: '' }]);
-      } else if (type === 'essay') {
-        setEssayAnswer('');
       }
     },
     [setEditingQuestionType]
@@ -273,25 +254,6 @@ export default function QuestionEditor() {
     []
   );
 
-  // Keyword handlers
-  const addKeyword = useCallback(() => {
-    setKeywords((prev) => [...prev, { id: uid(), keyword: '' }]);
-  }, []);
-
-  const removeKeyword = useCallback(
-    (id: string) => {
-      if (keywords.length <= 1) return;
-      setKeywords((prev) => prev.filter((k) => k.id !== id));
-    },
-    [keywords.length]
-  );
-
-  const updateKeyword = useCallback((id: string, keyword: string) => {
-    setKeywords((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, keyword } : k))
-    );
-  }, []);
-
   // Save handlers
   const handleSave = useCallback(() => {
     const questionData = {
@@ -308,9 +270,6 @@ export default function QuestionEditor() {
           ? options
           : undefined,
       matchingPairs: questionType === 'menjodohkan' ? matchingPairs : undefined,
-      shortAnswerKeywords:
-        questionType === 'isian_singkat' ? keywords : undefined,
-      essayReferenceAnswer: questionType === 'essay' ? essayAnswer : undefined,
     };
     console.log('Saving question:', questionData);
     alert('Soal berhasil disimpan! (demo)');
@@ -345,9 +304,6 @@ export default function QuestionEditor() {
           ? options
           : undefined,
       matchingPairs: questionType === 'menjodohkan' ? matchingPairs : undefined,
-      shortAnswerKeywords:
-        questionType === 'isian_singkat' ? keywords : undefined,
-      essayReferenceAnswer: questionType === 'essay' ? essayAnswer : undefined,
     };
     console.log('Saving question & creating another:', questionData);
     alert('Soal berhasil disimpan! Membuat soal baru... (demo)');
@@ -364,8 +320,6 @@ export default function QuestionEditor() {
       { id: uid(), premise: '', response: '' },
       { id: uid(), premise: '', response: '' },
     ]);
-    setKeywords([{ id: uid(), keyword: '' }]);
-    setEssayAnswer('');
   }, [
     questionType,
     subjectId,
@@ -376,8 +330,6 @@ export default function QuestionEditor() {
     questionText,
     options,
     matchingPairs,
-    keywords,
-    essayAnswer,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -580,30 +532,6 @@ export default function QuestionEditor() {
                   </span>
                 </div>
               ))}
-            </div>
-          )}
-
-          {questionType === 'isian_singkat' && (
-            <div
-              className="rounded-lg border border-dashed p-3 text-center text-sm"
-              style={{
-                borderColor: '#CBD5E1',
-                color: '#94A3B8',
-              }}
-            >
-              [ Jawaban singkat siswa ]
-            </div>
-          )}
-
-          {questionType === 'essay' && (
-            <div
-              className="rounded-lg border border-dashed p-4 text-center text-sm"
-              style={{
-                borderColor: '#CBD5E1',
-                color: '#94A3B8',
-              }}
-            >
-              [ Area jawaban essay siswa ]
             </div>
           )}
         </CardContent>
@@ -1250,173 +1178,6 @@ export default function QuestionEditor() {
                     <FontAwesomeIcon icon={faPlus} className="text-xs" />
                     Tambah Pasangan
                   </Button>
-                </div>
-              )}
-
-              {/* ============ Isian Singkat (Short Answer) ============ */}
-              {questionType === 'isian_singkat' && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm font-medium">
-                      Kata Kunci Jawaban
-                    </Label>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] gap-1 px-1.5 py-0"
-                      style={{
-                        borderColor: '#5B6ABF',
-                        color: '#5B6ABF',
-                      }}
-                    >
-                      <FontAwesomeIcon
-                        icon={faCheckDouble}
-                        className="text-[8px]"
-                      />
-                      Exact Match
-                    </Badge>
-                  </div>
-                  <p className="text-xs" style={{ color: '#636E72' }}>
-                    Sistem akan mencocokkan jawaban siswa secara tepat dengan
-                    kata kunci ini (case-insensitive)
-                  </p>
-
-                  {keywords.map((kw) => (
-                    <div key={kw.id} className="flex items-center gap-3">
-                      <Input
-                        value={kw.keyword}
-                        onChange={(e) => updateKeyword(kw.id, e.target.value)}
-                        placeholder="Masukkan kata kunci..."
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeKeyword(kw.id)}
-                        disabled={keywords.length <= 1}
-                        className="flex-shrink-0 hover:text-red-500"
-                        style={{ color: '#94A3B8' }}
-                      >
-                        <FontAwesomeIcon icon={faTrash} className="text-sm" />
-                      </Button>
-                    </div>
-                  ))}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addKeyword}
-                    className="gap-2"
-                  >
-                    <FontAwesomeIcon icon={faPlus} className="text-xs" />
-                    Tambah Kata Kunci
-                  </Button>
-                </div>
-              )}
-
-              {/* ============ Essay / Uraian ============ */}
-              {questionType === 'essay' && (
-                <div className="space-y-4">
-                  <Label className="text-sm font-medium">
-                    Kunci Jawaban Referensi (untuk AI Grading)
-                  </Label>
-                  <Textarea
-                    value={essayAnswer}
-                    onChange={(e) => setEssayAnswer(e.target.value)}
-                    placeholder="Tulis jawaban referensi di sini..."
-                    rows={6}
-                    className="resize-y"
-                  />
-
-                  {/* Word count indicator */}
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs" style={{ color: '#636E72' }}>
-                      Jawaban ini akan digunakan sebagai referensi untuk AI
-                      grading
-                    </p>
-                    <span
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          essayWordCount > 0 ? 'rgba(91,106,191,0.1)' : '#F1F5F9',
-                        color: essayWordCount > 0 ? '#5B6ABF' : '#94A3B8',
-                      }}
-                    >
-                      {essayWordCount} kata
-                    </span>
-                  </div>
-
-                  {/* Collapsible Tips for AI Grading */}
-                  <div
-                    className="rounded-lg border overflow-hidden"
-                    style={{ borderColor: '#E2E8F0' }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setShowEssayTips(!showEssayTips)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-xs font-medium transition-colors hover:bg-gray-50"
-                      style={{ color: '#636E72' }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <FontAwesomeIcon
-                          icon={faLightbulb}
-                          className="text-amber-500"
-                        />
-                        Tips untuk AI Grading
-                      </span>
-                      <FontAwesomeIcon
-                        icon={showEssayTips ? faChevronUp : faChevronDown}
-                        className="text-[10px]"
-                      />
-                    </button>
-                    {showEssayTips && (
-                      <div
-                        className="px-4 pb-4 space-y-2 text-xs"
-                        style={{ color: '#636E72' }}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span
-                            className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
-                            style={{ backgroundColor: '#5B6ABF' }}
-                          />
-                          <span>
-                            Tulis jawaban referensi yang lengkap dan terstruktur
-                            untuk hasil grading yang lebih akurat
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span
-                            className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
-                            style={{ backgroundColor: '#5B6ABF' }}
-                          />
-                          <span>
-                            Sertakan poin-poin kunci yang harus disebutkan siswa
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span
-                            className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
-                            style={{ backgroundColor: '#5B6ABF' }}
-                          />
-                          <span>
-                            AI akan membandingkan jawaban siswa dengan referensi
-                            dan memberikan skor 0-100%
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span
-                            className="w-1 h-1 rounded-full mt-1.5 flex-shrink-0"
-                            style={{ backgroundColor: '#5B6ABF' }}
-                          />
-                          <span>
-                            Gunakan minimal 30 kata untuk referensi agar AI dapat
-                            menganalisis dengan baik
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
             </CardContent>

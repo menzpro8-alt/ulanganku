@@ -17,6 +17,7 @@ import ImportWizard from '@/components/teacher/ImportWizard';
 import AIGenerator from '@/components/teacher/AIGenerator';
 import LiveMonitor from '@/components/teacher/LiveMonitor';
 import ExamManager from '@/components/teacher/ExamManager';
+import TeacherReports from '@/components/teacher/TeacherReports';
 
 // Student components
 import StudentDashboard from '@/components/student/StudentDashboard';
@@ -32,6 +33,7 @@ const TEACHER_NAV = [
   { key: 'teacher_import' as const, label: 'Import Soal', icon: 'upload' },
   { key: 'teacher_ai_generator' as const, label: 'AI Generator', icon: 'bolt' },
   { key: 'teacher_monitor' as const, label: 'Monitor Ujian', icon: 'eye' },
+  { key: 'teacher_reports' as const, label: 'Laporan Nilai', icon: 'file-invoice' },
 ];
 
 // Student sidebar navigation items
@@ -49,6 +51,7 @@ const VIEW_TITLES: Record<string, string> = {
   teacher_import: 'Import Soal',
   teacher_ai_generator: 'AI Generator',
   teacher_monitor: 'Monitor Ujian',
+  teacher_reports: 'Laporan Nilai',
   student_dashboard: 'Dashboard',
   student_exam: 'Ujian Aktif',
   student_results: 'Hasil Ujian',
@@ -103,6 +106,8 @@ export function AppShell() {
         return <AIGenerator />;
       case 'teacher_monitor':
         return <LiveMonitor />;
+      case 'teacher_reports':
+        return <TeacherReports />;
       case 'student_dashboard':
         return <StudentDashboard />;
       default:

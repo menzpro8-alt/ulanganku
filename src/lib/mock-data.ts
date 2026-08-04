@@ -241,6 +241,7 @@ export const MOCK_EXAMS: Exam[] = [
     durationMinutes: 90,
     totalPoints: 100,
     passingScore: 60,
+    token: 'MAT123',
     questions: [
       { id: 'eq1', questionId: 'q1', question: MOCK_QUESTIONS[0], order: 1, points: 10 },
       { id: 'eq2', questionId: 'q2', question: MOCK_QUESTIONS[1], order: 2, points: 15 },
@@ -259,6 +260,7 @@ export const MOCK_EXAMS: Exam[] = [
     durationMinutes: 45,
     totalPoints: 50,
     passingScore: 30,
+    token: 'ENG456',
     questions: [
       { id: 'eq3', questionId: 'q3', question: MOCK_QUESTIONS[2], order: 1, points: 20 },
       { id: 'eq9', questionId: 'q9', question: MOCK_QUESTIONS[8], order: 2, points: 5 },
@@ -276,6 +278,7 @@ export const MOCK_EXAMS: Exam[] = [
     durationMinutes: 120,
     totalPoints: 150,
     passingScore: 75,
+    token: 'FIS789',
     questions: [
       { id: 'eq6', questionId: 'q6', question: MOCK_QUESTIONS[5], order: 1, points: 5 },
       { id: 'eq8', questionId: 'q8', question: MOCK_QUESTIONS[7], order: 2, points: 20 },

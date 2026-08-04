@@ -55,6 +55,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
 } from 'recharts';
 import { MOCK_MONITORING, MOCK_SESSIONS, MOCK_EXAMS } from '@/lib/mock-data';
 import { StudentExamSession, StudentExamStatus, MonitoringData, Exam } from '@/lib/types';
@@ -405,6 +407,20 @@ export default function LiveMonitor() {
     { name: 'Diberi Flag', value: monitoring.flaggedStudents, color: '#FF6B6B' },
     { name: 'Selesai', value: monitoring.completedStudents, color: '#64748b' },
   ].filter(d => d.value > 0);
+
+  // ---------------------------------------------------------------------------
+  // Heatmap Data (Question index distribution)
+  // ---------------------------------------------------------------------------
+  const heatmapData = currentExam
+    ? Array(currentExam.questions.length)
+        .fill(0)
+        .map((_, i) => ({
+          question: `Q${i + 1}`,
+          students: monitoring.sessions.filter(
+            (s) => s.status === 'active' && s.currentQuestionIndex === i
+          ).length,
+        }))
+    : [];
 
   // ---------------------------------------------------------------------------
   // Render
@@ -767,6 +783,52 @@ export default function LiveMonitor() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Live Activity Heatmap Section */}
+      {currentExam && (
+        <Card className="border border-slate-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold" style={{ color: '#2D3436' }}>
+              Live Activity Heatmap
+            </CardTitle>
+            <p className="text-xs text-slate-500">
+              Sebaran posisi soal yang sedang dikerjakan siswa. Bar berwarna merah menunjukkan di mana banyak siswa yang terhenti (mandek).
+            </p>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div style={{ height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={heatmapData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis dataKey="question" tick={{ fontSize: 10, fill: '#636e72' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: '#636e72' }} allowDecimals={false} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(91, 106, 191, 0.1)' }}
+                    contentStyle={{
+                      fontSize: 11,
+                      borderRadius: 8,
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    }}
+                  />
+                  <Bar
+                    dataKey="students"
+                    name="Siswa"
+                    radius={[4, 4, 0, 0]}
+                  >
+                    {heatmapData.map((entry, index) => {
+                      const isHot = entry.students >= monitoring.activeStudents * 0.3 && entry.students > 1; 
+                      return (
+                        <Cell key={`cell-${index}`} fill={isHot ? '#FF6B6B' : '#5B6ABF'} />
+                      );
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Anti-Cheat Alert Log */}
       <Card className="border border-slate-200 overflow-hidden">

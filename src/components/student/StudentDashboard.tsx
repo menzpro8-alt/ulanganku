@@ -37,6 +37,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { MOCK_EXAMS, MOCK_STUDENTS, SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
 import { useExamStore } from '@/lib/store';
 import type { Exam } from '@/lib/types';
@@ -123,6 +132,11 @@ export default function StudentDashboard() {
   const [notifyExams, setNotifyExams] = useState<Set<string>>(new Set());
   const [historySort, setHistorySort] = useState('latest');
 
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false);
+  const [examToStart, setExamToStart] = useState<Exam | null>(null);
+  const [tokenInput, setTokenInput] = useState('');
+  const [tokenError, setTokenError] = useState(false);
+
   const activeExams = MOCK_EXAMS.filter(e => e.status === 'active');
   const upcomingExams = MOCK_EXAMS.filter(e => e.status === 'published');
 
@@ -177,7 +191,27 @@ export default function StudentDashboard() {
     setNotifyExams(next);
   };
 
-  const handleStartExam = (exam: Exam) => {
+  const promptToken = (exam: Exam) => {
+    setExamToStart(exam);
+    setTokenInput('');
+    setTokenError(false);
+    setTokenDialogOpen(true);
+  };
+
+  const handleStartExam = () => {
+    if (!examToStart) return;
+    if (tokenInput.trim().toUpperCase() !== examToStart.token.toUpperCase()) {
+      setTokenError(true);
+      return;
+    }
+    const exam = examToStart;
+    setTokenDialogOpen(false);
+
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(console.error);
+    }
+
     setStudentSession({
       id: `session-${Date.now()}`,
       studentId: student.id,
@@ -300,7 +334,7 @@ export default function StudentDashboard() {
                       </div>
                       <Button
                         className="w-full bg-gradient-to-r from-[#5B6ABF] to-[#4554A0] hover:from-[#4F5AB0] hover:to-[#3D4A90] text-white transition-all h-10 font-medium"
-                        onClick={() => handleStartExam(exam)}
+                        onClick={() => promptToken(exam)}
                       >
                         <FontAwesomeIcon icon={faPlay} className="text-xs mr-1.5" />
                         Mulai Ujian
@@ -463,6 +497,37 @@ export default function StudentDashboard() {
           )}
         </section>
       </div>
+
+      <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Masukkan Token Ujian</DialogTitle>
+            <DialogDescription>
+              Silakan masukkan token unik untuk memulai {examToStart?.title}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input 
+              placeholder="Contoh: 12345" 
+              value={tokenInput} 
+              onChange={e => {
+                setTokenInput(e.target.value);
+                setTokenError(false);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleStartExam();
+              }}
+            />
+            {tokenError && (
+              <p className="text-sm text-red-500 mt-2">Token salah. Silakan coba lagi.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTokenDialogOpen(false)}>Batal</Button>
+            <Button className="bg-slate-blue text-white" onClick={handleStartExam}>Mulai Ujian</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

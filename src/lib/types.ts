@@ -48,11 +48,7 @@ export interface MatchingPair {
   response: string; // Right item
 }
 
-// Short Answer Keyword
-export interface ShortAnswerKeyword {
-  id: string;
-  keyword: string;
-}
+
 
 // Base Question
 export interface Question {
@@ -68,8 +64,7 @@ export interface Question {
   // Type-specific fields
   options?: QuestionOption[];           // For pilihan_ganda & pilihan_ganda_kompleks
   matchingPairs?: MatchingPair[];       // For menjodohkan
-  shortAnswer?: string; // For isian_singkat
-  essayReferenceAnswer?: string;       // For essay
+
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +94,7 @@ export interface Exam {
   durationMinutes: number;
   totalPoints: number;
   passingScore: number;
+  token: string;
   questions: ExamQuestion[];
   createdAt: string;
   updatedAt: string;
@@ -142,8 +138,7 @@ export interface StudentAnswer {
   // Type-specific answer fields
   selectedOptionIds?: string[];     // For pilihan_ganda & pilihan_ganda_kompleks
   matchingAnswers?: { premiseId: string; responseId: string }[]; // For menjodohkan
-  shortAnswer?: string;             // For isian_singkat
-  essayAnswer?: string;             // For essay
+
 }
 
 // AI Generation Request
@@ -165,8 +160,7 @@ export interface AIGeneratedQuestion {
   difficulty: Difficulty;
   options?: QuestionOption[];
   matchingPairs?: MatchingPair[];
-  shortAnswerKeywords?: ShortAnswerKeyword[];
-  essayReferenceAnswer?: string;
+
   points: number;
   isSelected: boolean;
 }
@@ -209,6 +203,7 @@ export type AppView =
   | 'teacher_ai_generator'
   | 'teacher_monitor'
   | 'teacher_exam_manager'
+  | 'teacher_reports'
   | 'student_dashboard'
   | 'student_exam'
   | 'student_results';

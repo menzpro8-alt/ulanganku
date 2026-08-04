@@ -75,27 +75,6 @@ export default function ExamResults() {
             }
             break;
           }
-          case 'isian_singkat': {
-            const correctAnswer = (question.shortAnswer || '').toLowerCase().trim();
-            const answerText = (answer.shortAnswer ?? '').toLowerCase().trim();
-            if (correctAnswer && answerText === correctAnswer) {
-              earned = points;
-              isCorrect = true;
-            }
-            break;
-          }
-          case 'essay': {
-            // For essay, give partial credit based on whether something was written
-            const essayText = answer.essayAnswer ?? '';
-            if (essayText.length > 50) {
-              earned = Math.floor(points * 0.7);
-              isCorrect = false;
-            } else if (essayText.length > 0) {
-              earned = Math.floor(points * 0.3);
-              isCorrect = false;
-            }
-            break;
-          }
         }
       }
 
@@ -141,12 +120,6 @@ export default function ExamResults() {
           ?.map(p => `${p.premise} -> ${p.response}`)
           .join('; ') ?? '-';
       }
-      case 'isian_singkat': {
-        return question.shortAnswer || '-';
-      }
-      case 'essay': {
-        return question.essayReferenceAnswer ?? '-';
-      }
       default:
         return '-';
     }
@@ -176,12 +149,6 @@ export default function ExamResults() {
             return `${premise?.premise ?? '?'} -> ${response?.response ?? '?'}`;
           })
           .join('; ');
-      }
-      case 'isian_singkat': {
-        return answer.shortAnswer ?? 'Tidak dijawab';
-      }
-      case 'essay': {
-        return answer.essayAnswer ?? 'Tidak dijawab';
       }
       default:
         return 'Tidak dijawab';
