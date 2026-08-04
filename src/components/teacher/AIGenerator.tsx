@@ -698,7 +698,7 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
                     {aiQuestionTypes.length === QUESTION_TYPE_CARDS.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {QUESTION_TYPE_CARDS.map(({ type, icon, label, subtitle }) => {
                     const isSelected = aiQuestionTypes.includes(type);
                     return (
@@ -712,28 +712,32 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
                           setAiQuestionTypes([...aiQuestionTypes, type]);
                         }
                       }}
-                      className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all text-center ${
+                      className={`flex flex-row sm:flex-col items-center justify-start sm:justify-center gap-3 sm:gap-1 p-3 sm:p-2.5 rounded-lg border-2 transition-all text-left sm:text-center ${
                         isSelected
                           ? 'border-[#5B6ABF] bg-[#5B6ABF]/10'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
-                      <FontAwesomeIcon
-                        icon={icon}
-                        className={`text-sm ${
-                          isSelected ? 'text-[#5B6ABF]' : 'text-slate-400'
-                        }`}
-                      />
-                      <span
-                        className={`text-[10px] leading-tight ${
-                          isSelected ? 'text-[#5B6ABF] font-medium' : 'text-slate-500'
-                        }`}
-                      >
-                        {label}
-                      </span>
-                      <span className="text-[8px] text-slate-400 leading-tight">
-                        {subtitle}
-                      </span>
+                      <div className="w-6 sm:w-auto flex justify-center shrink-0">
+                        <FontAwesomeIcon
+                          icon={icon}
+                          className={`text-sm sm:text-base ${
+                            isSelected ? 'text-[#5B6ABF]' : 'text-slate-400'
+                          }`}
+                        />
+                      </div>
+                      <div className="flex flex-col sm:items-center min-w-0">
+                        <span
+                          className={`text-xs sm:text-[10px] leading-tight truncate sm:whitespace-normal ${
+                            isSelected ? 'text-[#5B6ABF] font-medium' : 'text-slate-600 font-medium sm:text-slate-500'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                        <span className="text-[10px] sm:text-[8px] text-slate-400 leading-tight truncate sm:whitespace-normal">
+                          {subtitle}
+                        </span>
+                      </div>
                     </button>
                   )})}
                 </div>
