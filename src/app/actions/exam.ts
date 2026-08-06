@@ -8,20 +8,21 @@ export async function publishExam(examData: any) {
   try {
     const { id, title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token, questions } = examData;
 
-    const existing = await db.exam.findUnique({
-      where: { id: id.startsWith('e-') ? undefined : id }
-    });
+    let dbExam;
+    const isMockId = !id || id.startsWith('e-');
 
-    const dbExam = await db.exam.upsert({
-      where: { id: existing ? existing.id : 'new-id' },
-      update: {
-        title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token,
-      },
-      create: {
-        id: id.startsWith('e-') ? undefined : id,
-        title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token,
-      }
-    });
+    if (!isMockId) {
+      // Update existing
+      dbExam = await db.exam.update({
+        where: { id },
+        data: { title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token }
+      });
+    } else {
+      // Create new
+      dbExam = await db.exam.create({
+        data: { title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token }
+      });
+    }
 
     if (questions && questions.length > 0) {
       await db.examQuestion.deleteMany({

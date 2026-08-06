@@ -6,7 +6,9 @@
 export type QuestionType = 
   | 'pilihan_ganda'        // Single Choice
   | 'pilihan_ganda_kompleks' // Multi-Select
-  | 'menjodohkan';         // Matching Pairs
+  | 'menjodohkan'          // Matching Pairs
+  | 'isian_singkat'        // Short Answer
+  | 'essay';               // Essay
 
 export type Difficulty = 'mudah' | 'sedang' | 'sulit';
 
@@ -138,6 +140,7 @@ export interface StudentAnswer {
   // Type-specific answer fields
   selectedOptionIds?: string[];     // For pilihan_ganda & pilihan_ganda_kompleks
   matchingAnswers?: { premiseId: string; responseId: string }[]; // For menjodohkan
+  textAnswer?: string;              // For isian_singkat & essay
 
 }
 
@@ -229,12 +232,16 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   pilihan_ganda: 'Pilihan Ganda',
   pilihan_ganda_kompleks: 'Pilihan Ganda Kompleks',
   menjodohkan: 'Menjodohkan',
+  isian_singkat: 'Isian Singkat',
+  essay: 'Uraian / Essay',
 };
 
 export const QUESTION_TYPE_ICONS: Record<QuestionType, string> = {
   pilihan_ganda: 'faCircleDot',
   pilihan_ganda_kompleks: 'faSquareCheck',
   menjodohkan: 'faRightLeft',
+  isian_singkat: 'faKeyboard',
+  essay: 'faParagraph',
 };
 
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {

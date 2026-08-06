@@ -228,12 +228,14 @@ export default function StudentDashboard() {
       answers: [],
       score: 0
     };
-    createSession(newSession).then(res => {
-      if(res.success) {
-        setStudentSession({ ...newSession, student } as any);
-      }
-    });
+    
+    // Set session immediately so UI can transition without waiting for DB
+    setStudentSession({ ...newSession, student } as any);
+    useExamStore.getState().setCurrentQuestionIndex(0); // Reset index!
     setView('student_exam');
+    
+    // Attempt to persist in DB (fire and forget)
+    createSession(newSession).catch(console.error);
   };
 
   return (

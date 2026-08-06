@@ -15,21 +15,28 @@ export function RoleSelector() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [error, setError] = useState(false);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(false);
     
-    // For now, hardcode bypass to show the UI
     setTimeout(() => {
-      if (username === 'admin') {
+      const u = username.toLowerCase().trim();
+      const p = password.toLowerCase().trim();
+
+      if (u === 'admin' && p === 'admin') {
         setRole('admin');
         setView('admin_dashboard');
-      } else if (username === 'guru') {
+      } else if (u === 'guru' && p === 'guru') {
         setRole('teacher');
         setView('teacher_dashboard');
-      } else {
+      } else if (u === 'siswa' && p === 'siswa') {
         setRole('student');
         setView('student_dashboard');
+      } else {
+        setError(true);
       }
       setLoading(false);
     }, 1000);
@@ -71,6 +78,12 @@ export function RoleSelector() {
                 />
               </div>
             </div>
+
+            {error && (
+              <div className="text-red-500 text-sm text-center font-medium bg-red-50 p-2 rounded-xl">
+                Username atau sandi salah. Silakan coba lagi!
+              </div>
+            )}
 
             <Button 
               type="submit"

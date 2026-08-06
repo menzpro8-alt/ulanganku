@@ -136,10 +136,7 @@ export default function AIGenerator() {
     const step2 = setTimeout(() => setGenerationStep(2), 1800);
 
     try {
-      if (!window.puter) { toast.error('Puter.js belum dimuat. Silakan muat ulang halaman.'); setIsGenerating(false); return; }
-      if (!window.puter.auth.isSignedIn()) {
-        await window.puter.auth.signIn();
-      }
+      // (Removed Puter SDK check since we use server API)
 
       const clampedCount = Math.min(Math.max(aiQuestionCount || 5, 1), 20);
       const requestedTypes = aiQuestionTypes && aiQuestionTypes.length > 0 ? aiQuestionTypes : ['pilihan_ganda'];
@@ -166,49 +163,28 @@ Balas HANYA JSON array, tanpa markdown. Schema per tipe:
 Generate tepat ${clampedCount} soal.`;
 
       
-      let result;
-      try {
-        result = await window.puter.ai.chat(prompt, aiModel ? { model: aiModel } : undefined);
-      } catch (err) {
-        console.warn('Puter AI with model failed, falling back to default:', err);
-        result = await window.puter.ai.chat(prompt);
-      }
+      const res = await fetch('/api/ai-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: subjectName,
+          grade: gradeName,
+          difficulty: diff,
+          questionCount: clampedCount,
+          questionTypes: requestedTypes,
+          topic: topicName,
+          prompt,
+          model: aiModel || undefined,
+        }),
+      });
 
-      const content = typeof result === 'string' ? result : (result?.message?.content || '');
+      if (!res.ok) throw new Error('API error: ' + res.statusText);
+      const data = await res.json();
       
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('No JSON array found in response: ' + content);
+      const parsed = data.questions || [];
       
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      const questions: AIGeneratedQuestion[] = (parsed as Record<string, unknown>[]).map(
-        (q, i) => {
-          const id = `ai-${Date.now()}-${i}`;
-          const tempId = `temp-${Date.now()}-${i}`;
-          return {
-            id,
-            tempId,
-            type: (q.type as QuestionType) || requestedTypes[i % requestedTypes.length] || 'pilihan_ganda',
-            text: (q.text as string) || `Soal tentang ${topicName}`,
-            difficulty: mixedDifficulty ? 'sedang' : (aiDifficulty as Difficulty),
-            options: (q.options as AIGeneratedQuestion['options'])?.map((opt, oi) => ({
-              ...opt,
-              id: `${id}-opt-${oi}`,
-            })),
-            matchingPairs: (q.matchingPairs as AIGeneratedQuestion['matchingPairs'])?.map(
-              (pair, pi) => ({
-                ...pair,
-                id: `${id}-p${pi}`,
-              })
-            ),
-            points: (q.points as number) || 10,
-            isSelected: true,
-          };
-        }
-      );
-
-      setGeneratedQuestions(questions);
-      setSource('ai');
+      setGeneratedQuestions(parsed);
+      setSource(data.source || 'ai');
       setGenerationStep(3);
     } catch (e: any) {
       console.error(e);
@@ -229,9 +205,7 @@ Generate tepat ${clampedCount} soal.`;
     setIsGenerating(true);
 
     try {
-      if (!window.puter.auth.isSignedIn()) {
-        await window.puter.auth.signIn();
-      }
+      // Use server API
       
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
@@ -251,20 +225,24 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
 `;
 
       
-      let result;
-      try {
-        result = await window.puter.ai.chat(prompt, aiModel ? { model: aiModel } : undefined);
-      } catch (err) {
-        console.warn('Puter AI with model failed, falling back to default:', err);
-        result = await window.puter.ai.chat(prompt);
-      }
+      const res = await fetch('/api/ai-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: subjectName,
+          grade: gradeName,
+          difficulty: diff,
+          questionCount: 1,
+          questionTypes: [typ],
+          topic: topicName,
+          prompt,
+          model: aiModel || undefined,
+        }),
+      });
 
-      const content = typeof result === 'string' ? result : (result?.message?.content || '');
-      
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('No JSON array found: ' + content);
-      
-      const parsed = JSON.parse(jsonMatch[0]);
+      if (!res.ok) throw new Error('API error: ' + res.statusText);
+      const data = await res.json();
+      const parsed = data.questions || [];
       if (parsed && parsed.length > 0) {
         const q = parsed[0];
         const id = `ai-${Date.now()}`;
@@ -361,11 +339,13 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
     if (selected.length === 0) return;
 
     try {
+      const subjectId = aiSubject === 'custom' ? customSubject : aiSubject;
+      const gradeId = aiGrade;
+      
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
-      const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
       
-      const res = await saveGeneratedQuestions(selected, subjectName, gradeName, topicName);
+      const res = await saveGeneratedQuestions(selected, subjectId, gradeId, topicName);
       if (res.success) {
         toast.success(`${res.count} soal berhasil disimpan!`, {
           description: 'Soal telah ditambahkan ke Bank Soal.',
@@ -385,11 +365,13 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
     if (selected.length === 0) return;
 
     try {
+      const subjectId = aiSubject === 'custom' ? customSubject : aiSubject;
+      const gradeId = aiGrade;
+      
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
-      const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = (topic || subjectName) + ' (Draft)';
       
-      const res = await saveGeneratedQuestions(selected, subjectName, gradeName, topicName);
+      const res = await saveGeneratedQuestions(selected, subjectId, gradeId, topicName);
       if (res.success) {
         toast.success(`${res.count} soal disimpan sebagai draft`, {
           description: 'Draft tersedia di Bank Soal.',

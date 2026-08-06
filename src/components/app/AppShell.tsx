@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useExamStore } from '@/lib/store';
 import { Icon } from '@/components/shared/Icon';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,15 @@ const VIEW_TITLES: Record<string, string> = {
 export function AppShell() {
   const { role, currentView, setView, setRole } = useExamStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null; // or a simple loading spinner to avoid hydration mismatch
+  }
 
   // If no role selected, show role selector
   if (role === null || currentView === 'role_select') {
@@ -77,6 +86,11 @@ export function AppShell() {
 
   // Special full-screen views (exam view and results don't use the sidebar)
   if (currentView === 'student_exam') {
+    if (!useExamStore.getState().studentSession) {
+      // Corrupted state (e.g. from previous crash): redirect to dashboard
+      setTimeout(() => setView('student_dashboard'), 0);
+      return null;
+    }
     return <ExamView />;
   }
 

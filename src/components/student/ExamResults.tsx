@@ -176,8 +176,13 @@ export default function ExamResults() {
     setView('student_dashboard');
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center bg-cool-gray">Loading...</div>;
-  if (!exam) return <div className="flex h-screen items-center justify-center bg-cool-gray">Ujian tidak ditemukan</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center bg-cool-gray"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-10 h-10 border-4 border-slate-blue border-t-transparent rounded-full" /></div>;
+  if (!exam) return (
+    <div className="flex h-screen items-center justify-center bg-cool-gray flex-col gap-4">
+      <div className="text-xl font-bold text-red-500">Ujian tidak ditemukan.</div>
+      <Button onClick={handleBackToDashboard} className="bg-slate-blue text-white">Kembali ke Dasbor</Button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-cool-gray page-enter">

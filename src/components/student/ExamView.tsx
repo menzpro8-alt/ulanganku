@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -66,18 +66,24 @@ export default function ExamView() {
     loadExam();
   }, [studentSession]);
 
-  const [shuffledQuestions, setShuffledQuestions] = useState<any[]>([]);
-  const currentQuestion = shuffledQuestions[currentQuestionIndex];
-
-  // Initialize shuffled questions on mount
-  useEffect(() => {
-    if (!exam) return;
-    const rawQuestions = exam.questions
+  const shuffledQuestions = useMemo(() => {
+    if (!exam) return [];
+    const rawQuestions = (exam.questions || [])
       .map((eq: any) => eq.question)
       .filter((q: any) => q != null);
-    const shuffled = [...rawQuestions].sort(() => Math.random() - 0.5);
-    setShuffledQuestions(shuffled);
+    return [...rawQuestions].sort(() => Math.random() - 0.5);
   }, [exam]);
+
+  const currentQuestion = shuffledQuestions[currentQuestionIndex];
+
+  // Safeguard: if index is out of bounds, clamp it
+  useEffect(() => {
+    if (!loading && shuffledQuestions.length > 0) {
+      if (currentQuestionIndex >= shuffledQuestions.length || currentQuestionIndex < 0) {
+        setCurrentQuestionIndex(0);
+      }
+    }
+  }, [loading, shuffledQuestions.length, currentQuestionIndex, setCurrentQuestionIndex]);
 
   // Timer state
   const [timeLeft, setTimeLeft] = useState((exam?.durationMinutes || 60) * 60);
@@ -216,12 +222,13 @@ export default function ExamView() {
       <Button onClick={() => setView('student_dashboard')} className="bg-slate-blue text-white">Kembali ke Dasbor</Button>
     </div>
   );
-  if (!currentQuestion) return (
+  if (shuffledQuestions.length === 0) return (
     <div className="flex h-screen items-center justify-center bg-cool-gray flex-col gap-4">
-      <div className="text-xl font-bold text-charcoal">Ujian ini belum memiliki soal.</div>
+      <div className="text-xl font-bold text-charcoal">Ujian ini belum memiliki soal yang valid.</div>
       <Button onClick={() => setView('student_dashboard')} className="bg-slate-blue text-white">Kembali ke Dasbor</Button>
     </div>
   );
+  if (!currentQuestion) return <div className="flex h-screen items-center justify-center bg-cool-gray"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-10 h-10 border-4 border-slate-blue border-t-transparent rounded-full" /></div>;
 
   // Question navigator item
   const renderNavCircle = (q: NonNullable<typeof currentQuestion>, index: number, isMobile = false) => {
@@ -376,7 +383,7 @@ export default function ExamView() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-[10px] text-charcoal-light px-1.5 py-0 h-5">
-                {exam.questions[currentQuestionIndex]?.points ?? currentQuestion.points} poin
+                {exam.questions?.[currentQuestionIndex]?.points ?? currentQuestion.points} poin
               </Badge>
               <Button
                 variant="ghost"

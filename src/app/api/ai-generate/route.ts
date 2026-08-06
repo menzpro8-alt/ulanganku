@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
       questionCount: number;
       questionTypes: QuestionType[];
       topic?: string;
+      prompt?: string;
+      model?: string;
     };
 
     const clampedCount = Math.min(Math.max(questionCount || 5, 1), 20);
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
     const requestedTypes: QuestionType[] = questionTypes && questionTypes.length > 0 ? questionTypes : ['pilihan_ganda'];
     const typesDescription = requestedTypes.map(t => `${t} (${typeLabels[t as QuestionType]})`).join(', ');
 
-    const prompt = `Generate ${clampedCount} Indonesian education questions with the following specifications:
+    const generatedPrompt = `Generate ${clampedCount} Indonesian education questions with the following specifications:
 - Subject: ${subject}
 - Class/Grade: ${grade}
 - Topic: ${topic || subject}
@@ -118,17 +120,21 @@ For type "menjodohkan":
 
 All questions must be in Bahasa Indonesia and appropriate for the specified grade level. Generate exactly ${clampedCount} questions.`;
 
+    const finalPrompt = body.prompt || generatedPrompt;
+
     try {
-      const result = await puter.ai.chat(
-        [
-          {
-            role: 'system',
-            content:
-              'You are an expert Indonesian education question generator. Generate questions in Bahasa Indonesia. Return ONLY valid JSON array without any markdown formatting or code blocks.',
-          },
-          { role: 'user', content: prompt },
-        ]
-      );
+      const messages = body.prompt
+        ? finalPrompt
+        : [
+            {
+              role: 'system',
+              content:
+                'You are an expert Indonesian education question generator. Generate questions in Bahasa Indonesia. Return ONLY valid JSON array without any markdown formatting or code blocks.',
+            },
+            { role: 'user', content: finalPrompt },
+          ];
+
+      const result = await puter.ai.chat(messages, body.model ? { model: body.model } : undefined);
 
       let parsed: unknown[];
       try {

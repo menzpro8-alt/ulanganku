@@ -9,6 +9,8 @@ import {
   faCheck,
   faCircleInfo,
   faRotateLeft,
+  faKeyboard,
+  faParagraph,
 } from '@fortawesome/free-solid-svg-icons';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +39,8 @@ const TYPE_ICONS: Record<QuestionType, typeof faCircleDot> = {
   pilihan_ganda: faCircleDot,
   pilihan_ganda_kompleks: faSquareCheck,
   menjodohkan: faRightLeft,
+  isian_singkat: faKeyboard,
+  essay: faParagraph,
 };
 
 // ============================================================
@@ -346,6 +350,62 @@ function MatchingPairsRenderer({
 }
 
 // ============================================================
+// Short Answer Renderer
+// ============================================================
+function ShortAnswerRenderer({
+  question,
+  answer,
+  onAnswer,
+}: QuestionRendererProps) {
+  const value = answer?.textAnswer ?? '';
+
+  return (
+    <div className="space-y-3">
+      <Label htmlFor="short-answer" className="text-sm font-medium text-charcoal">Jawaban Singkat</Label>
+      <Input
+        id="short-answer"
+        value={value}
+        onChange={(e) => onAnswer({
+          questionId: question.id,
+          type: 'isian_singkat',
+          textAnswer: e.target.value
+        })}
+        placeholder="Ketik jawaban Anda di sini..."
+        className="w-full"
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Essay Renderer
+// ============================================================
+function EssayRenderer({
+  question,
+  answer,
+  onAnswer,
+}: QuestionRendererProps) {
+  const value = answer?.textAnswer ?? '';
+
+  return (
+    <div className="space-y-3">
+      <Label htmlFor="essay-answer" className="text-sm font-medium text-charcoal">Uraian / Essay</Label>
+      <Textarea
+        id="essay-answer"
+        value={value}
+        onChange={(e) => onAnswer({
+          questionId: question.id,
+          type: 'essay',
+          textAnswer: e.target.value
+        })}
+        placeholder="Ketik uraian jawaban Anda di sini secara lengkap..."
+        className="min-h-[150px] w-full"
+      />
+    </div>
+  );
+}
+
+// ============================================================
 // Main Question Renderer
 // ============================================================
 export default function QuestionRenderer({
@@ -379,6 +439,22 @@ export default function QuestionRenderer({
             onAnswer={onAnswer}
           />
         );
+      case 'isian_singkat':
+        return (
+          <ShortAnswerRenderer
+            question={question}
+            answer={answer}
+            onAnswer={onAnswer}
+          />
+        );
+      case 'essay':
+        return (
+          <EssayRenderer
+            question={question}
+            answer={answer}
+            onAnswer={onAnswer}
+          />
+        );
       default:
         return null;
     }
@@ -393,11 +469,11 @@ export default function QuestionRenderer({
             variant="outline"
             className="gap-1.5 border-slate-blue/30 text-slate-blue"
           >
-            <FontAwesomeIcon icon={TYPE_ICONS[question.type]} className="text-xs" />
-            {QUESTION_TYPE_LABELS[question.type]}
+            <FontAwesomeIcon icon={TYPE_ICONS[question.type] || faCircleDot} className="text-xs" />
+            {QUESTION_TYPE_LABELS[question.type] || question.type}
           </Badge>
-          <Badge className={`border-0 ${DIFFICULTY_COLORS[question.difficulty]}`}>
-            {DIFFICULTY_LABELS[question.difficulty]}
+          <Badge className={`border-0 ${DIFFICULTY_COLORS[question.difficulty] || 'bg-cool-gray-100 text-cool-gray-700'}`}>
+            {DIFFICULTY_LABELS[question.difficulty] || question.difficulty}
           </Badge>
           <Badge variant="outline" className="text-charcoal-light">
             {question.points} poin

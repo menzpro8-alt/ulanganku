@@ -78,9 +78,9 @@ export function QuestionBank() {
   }, [banks, filterSubject, filterClass, filterTopic, searchQuery]);
 
   // Get subject/class/topic names
-  const getSubjectName = (id: string) => SUBJECTS.find((s) => s.id === id)?.name || '';
-  const getClassName = (id: string) => CLASS_GRADES.find((c) => c.id === id)?.name || '';
-  const getTopicName = (id: string) => TOPICS.find((t) => t.id === id)?.name || '';
+  const getSubjectName = (id: string) => SUBJECTS.find((s) => s.id === id)?.name || id || 'Tanpa Mapel';
+  const getClassName = (id: string) => CLASS_GRADES.find((s) => s.id === id)?.name || id || 'Tanpa Kelas';
+  const getTopicName = (id: string) => TOPICS.find((t) => t.id === id)?.name || id || 'Tanpa Topik';
 
   const getTypeDistribution = (bank: any) => {
     const dist: Record<string, number> = {};
