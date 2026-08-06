@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faClock,
@@ -27,7 +28,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useExamStore } from '@/lib/store';
-import { MOCK_EXAMS } from '@/lib/mock-data';
+import { getExam } from '@/app/actions/exam';
+import { updateSession } from '@/app/actions/session';
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '@/lib/types';
 import type { StudentAnswer } from '@/lib/types';
 import QuestionRenderer from './QuestionRenderer';
@@ -46,19 +48,39 @@ export default function ExamView() {
     setStudentSession,
   } = useExamStore();
 
-  const exam = MOCK_EXAMS[0];
-  const [shuffledQuestions, setShuffledQuestions] = useState<typeof exam.questions[0]['question'][]>([]);
+  const [exam, setExam] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadExam() {
+      if (studentSession?.examId) {
+        const res = await getExam(studentSession.examId);
+        if (res.success && res.data) {
+          setExam(res.data);
+        } else {
+          setExam(null);
+        }
+      }
+      setLoading(false);
+    }
+    loadExam();
+  }, [studentSession]);
+
+  const [shuffledQuestions, setShuffledQuestions] = useState<any[]>([]);
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
 
   // Initialize shuffled questions on mount
   useEffect(() => {
-    const rawQuestions = exam.questions.map(eq => eq.question);
+    if (!exam) return;
+    const rawQuestions = exam.questions
+      .map((eq: any) => eq.question)
+      .filter((q: any) => q != null);
     const shuffled = [...rawQuestions].sort(() => Math.random() - 0.5);
     setShuffledQuestions(shuffled);
   }, [exam]);
 
   // Timer state
-  const [timeLeft, setTimeLeft] = useState(exam.durationMinutes * 60);
+  const [timeLeft, setTimeLeft] = useState((exam?.durationMinutes || 60) * 60);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(new Set());
@@ -70,7 +92,8 @@ export default function ExamView() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Webcam Proctoring
+  // Webcam Proctoring (Disabled)
+  /*
   useEffect(() => {
     let stream: MediaStream | null = null;
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -89,6 +112,7 @@ export default function ExamView() {
       }
     };
   }, []);
+  */
 
   const formatTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -100,7 +124,7 @@ export default function ExamView() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const timePercentage = (timeLeft / (exam.durationMinutes * 60)) * 100;
+  const timePercentage = (timeLeft / ((exam?.durationMinutes || 60) * 60)) * 100;
   const isTimeWarning = timeLeft <= 300 && timeLeft > 60;
   const isTimeCritical = timeLeft <= 60;
 
@@ -115,13 +139,15 @@ export default function ExamView() {
     }
 
     if (studentSession) {
-      setStudentSession({
+      const updatedSession = {
         ...studentSession,
         status: antiCheatStrikes >= 3 ? 'auto_submitted' : 'completed',
         endTime: new Date().toISOString(),
         answers: Array.from(studentAnswers.values()),
         score: Math.floor(Math.random() * 40) + 60,
-      });
+      };
+      setStudentSession(updatedSession as any);
+      updateSession(studentSession.id, updatedSession);
     }
 
     setTimeout(() => {
@@ -183,7 +209,19 @@ export default function ExamView() {
   const minScore = Math.round((answeredCount / totalQuestions) * 30);
   const maxScore = Math.round((answeredCount / totalQuestions) * 100);
 
-  if (!currentQuestion) return null;
+  if (loading) return <div className="flex h-screen items-center justify-center bg-cool-gray"><motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-10 h-10 border-4 border-slate-blue border-t-transparent rounded-full" /></div>;
+  if (!exam) return (
+    <div className="flex h-screen items-center justify-center bg-cool-gray flex-col gap-4">
+      <div className="text-xl font-bold text-red-500">Ujian tidak ditemukan atau sudah dihapus.</div>
+      <Button onClick={() => setView('student_dashboard')} className="bg-slate-blue text-white">Kembali ke Dasbor</Button>
+    </div>
+  );
+  if (!currentQuestion) return (
+    <div className="flex h-screen items-center justify-center bg-cool-gray flex-col gap-4">
+      <div className="text-xl font-bold text-charcoal">Ujian ini belum memiliki soal.</div>
+      <Button onClick={() => setView('student_dashboard')} className="bg-slate-blue text-white">Kembali ke Dasbor</Button>
+    </div>
+  );
 
   // Question navigator item
   const renderNavCircle = (q: NonNullable<typeof currentQuestion>, index: number, isMobile = false) => {
@@ -192,7 +230,7 @@ export default function ExamView() {
     const isFlagged = flaggedQuestions.has(q.id);
 
     return (
-      <button
+      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
         key={q.id}
         onClick={() => goToQuestion(index)}
         title={`Soal ${index + 1}${isFlagged ? ' (Ditandai)' : ''}`}
@@ -215,7 +253,7 @@ export default function ExamView() {
             className="absolute -top-1 -right-1 text-[8px] text-amber-500"
           />
         )}
-      </button>
+      </motion.button>
     );
   };
 
@@ -224,13 +262,15 @@ export default function ExamView() {
       {/* Anti-Cheat Overlay */}
       <AntiCheatOverlay />
 
-      {/* Webcam Preview */}
-      <div className="fixed bottom-4 right-4 z-50 w-32 h-24 bg-black rounded-lg overflow-hidden border-2 border-slate-blue shadow-lg">
-        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-      </div>
+      {/* Webcam Preview (Disabled) */}
+      {false && (
+        <div className="fixed bottom-4 right-4 z-50 w-32 h-24 bg-black rounded-lg overflow-hidden border-2 border-slate-blue shadow-lg">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+        </div>
+      )}
 
       {/* Top Bar */}
-      <div className="sticky top-0 z-40 bg-white border-b border-cool-gray-200 shadow-sm">
+      <div className="sticky top-0 z-40 bg-white border-b border-cool-gray-200 shadow-sm transition-all duration-300">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             {/* Back button */}
@@ -355,15 +395,25 @@ export default function ExamView() {
           </div>
 
           {/* Question Card */}
-          <Card className="border-cool-gray-200 shadow-sm mb-4">
-            <CardContent className="p-4 sm:p-6">
-              <QuestionRenderer
-                question={currentQuestion}
-                answer={getCurrentAnswer()}
-                onAnswer={handleAnswer}
-              />
-            </CardContent>
-          </Card>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentQuestionIndex}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, type: "spring", stiffness: 300, damping: 30 }}
+            >
+              <Card className="border-cool-gray-200 bg-white shadow-sm mb-4 transition-all duration-300">
+                <CardContent className="p-4 sm:p-6">
+                  <QuestionRenderer
+                    question={currentQuestion}
+                    answer={getCurrentAnswer()}
+                    onAnswer={handleAnswer}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Bottom Navigation Bar */}
           <div className="bg-white rounded-xl border border-cool-gray-200 shadow-sm p-3 sm:p-4">

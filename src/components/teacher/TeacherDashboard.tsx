@@ -133,11 +133,6 @@ const QUICK_ACTIONS = [
 // ============================================================
 // Helpers
 // ============================================================
-function getSubjectName(subjectId: string): string {
-  const s = SUBJECTS.find((sub) => sub.id === subjectId);
-  return s ? s.name : subjectId;
-}
-
 function formatDateIndonesian(): string {
   const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const months = [

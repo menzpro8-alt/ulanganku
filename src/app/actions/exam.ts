@@ -2,53 +2,31 @@
 
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import { ExamStatus } from '@/lib/types';
 
+// -- Existing functions --
 export async function publishExam(examData: any) {
   try {
-    // Basic conversion from frontend Exam shape to Prisma Exam shape
     const { id, title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token, questions } = examData;
 
-    // Check if exam already exists
     const existing = await db.exam.findUnique({
-      where: { id: id.startsWith('e-') ? undefined : id } // Handle mock IDs gracefully if needed, or just upsert
+      where: { id: id.startsWith('e-') ? undefined : id }
     });
 
     const dbExam = await db.exam.upsert({
       where: { id: existing ? existing.id : 'new-id' },
       update: {
-        title,
-        description,
-        subjectId,
-        classGradeId,
-        status,
-        durationMinutes,
-        totalPoints,
-        passingScore,
-        token,
+        title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token,
       },
       create: {
-        id: id.startsWith('e-') ? undefined : id, // Let Prisma generate if it's a mock id like e-1234
-        title,
-        description,
-        subjectId,
-        classGradeId,
-        status,
-        durationMinutes,
-        totalPoints,
-        passingScore,
-        token,
+        id: id.startsWith('e-') ? undefined : id,
+        title, description, subjectId, classGradeId, status, durationMinutes, totalPoints, passingScore, token,
       }
     });
 
-    // Create exam questions
     if (questions && questions.length > 0) {
-      // First delete existing exam questions
       await db.examQuestion.deleteMany({
         where: { examId: dbExam.id }
       });
-
-      // Then create new ones
       await db.examQuestion.createMany({
         data: questions.map((q: any) => ({
           examId: dbExam.id,
@@ -61,9 +39,8 @@ export async function publishExam(examData: any) {
 
     revalidatePath('/');
     return { success: true, examId: dbExam.id };
-  } catch (error) {
-    console.error('Error publishing exam:', error);
-    return { success: false, error: 'Gagal menyimpan ujian ke database' };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal menyimpan ujian ke database' };
   }
 }
 
@@ -74,8 +51,132 @@ export async function getActiveExams() {
       orderBy: { createdAt: 'desc' }
     });
     return { success: true, data: exams };
-  } catch (error) {
-    console.error('Error fetching active exams:', error);
-    return { success: false, error: 'Gagal mengambil data ujian' };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal mengambil data ujian' };
+  }
+}
+
+// -- General CRUD functions --
+export async function getExams() {
+  try {
+    const data = await db.exam.findMany({
+      include: { questions: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // We need to fetch all questions for these exams because of Prisma missing relation
+    const allQuestionIds = new Set<string>();
+    data.forEach(exam => exam.questions.forEach(eq => allQuestionIds.add(eq.questionId)));
+    
+    if (allQuestionIds.size > 0) {
+      const actualQuestions = await db.question.findMany({
+        where: { id: { in: Array.from(allQuestionIds) } }
+      });
+      const qMap = new Map(actualQuestions.map(q => [q.id, q]));
+      
+      data.forEach(exam => {
+        exam.questions = exam.questions.map((eq: any) => ({
+          ...eq,
+          question: qMap.get(eq.questionId) || null
+        }));
+      });
+    }
+
+    return { success: true, data }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getExam(id: string) {
+  try {
+    const data = await db.exam.findUnique({
+      where: { id },
+      include: { questions: true }
+    })
+    
+    if (data && data.questions) {
+      const qIds = data.questions.map(q => q.questionId);
+      const actualQuestions = await db.question.findMany({
+        where: { id: { in: qIds } }
+      });
+      const qMap = new Map(actualQuestions.map(q => [q.id, q]));
+      
+      // Attach the full question object to eq.question
+      data.questions = data.questions.map((eq: any) => ({
+        ...eq,
+        question: qMap.get(eq.questionId) || null
+      }));
+    }
+
+    return { success: true, data }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function createExam(data: any) {
+  try {
+    const { questions, ...examData } = data
+    
+    const createData: any = { ...examData }
+    if (questions && Array.isArray(questions) && questions.length > 0) {
+      createData.questions = {
+        create: questions
+      }
+    }
+
+    const result = await db.exam.create({
+      data: createData,
+      include: { questions: true }
+    })
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function updateExam(id: string, data: any) {
+  try {
+    const { questions, ...examData } = data
+    const result = await db.exam.update({
+      where: { id },
+      data: examData
+    })
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteExam(id: string) {
+  try {
+    const result = await db.exam.delete({ where: { id } })
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function addExamQuestion(examId: string, data: any) {
+  try {
+    const result = await db.examQuestion.create({
+      data: {
+        ...data,
+        examId
+      }
+    })
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteExamQuestion(id: string) {
+  try {
+    const result = await db.examQuestion.delete({ where: { id } })
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faFileAlt,
@@ -30,7 +30,8 @@ import {
   faBookOpen,
 } from '@fortawesome/free-solid-svg-icons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { publishExam } from '@/app/actions/exam';
+import { publishExam, getExams, deleteExam } from '@/app/actions/exam';
+import { getQuestions } from '@/app/actions/question';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MOCK_EXAMS, MOCK_QUESTIONS, SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
+import { SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '@/lib/types';
 import type { Exam, ExamStatus, Question, QuestionType } from '@/lib/types';
 
@@ -120,18 +121,74 @@ export default function ExamManager() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const [rawExams, setRawExams] = useState<any[]>([]);
+  const [availableQuestions, setAvailableQuestions] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function loadData() {
+      const [resExams, resQs] = await Promise.all([getExams(), getQuestions()]);
+      
+      let formattedQuestions: any[] = [];
+      if (resQs.success) {
+        formattedQuestions = resQs.data.map((q: any) => ({
+          ...q.content,
+          id: q.id,
+          subjectId: q.subject,
+          classGradeId: q.grade,
+          topicId: q.topic,
+          difficulty: q.difficulty,
+          type: q.type,
+          points: q.content?.points || 10,
+          text: q.content?.text || '',
+          options: q.content?.options || [],
+          matchingPairs: q.content?.matchingPairs || [],
+        }));
+        setAvailableQuestions(formattedQuestions);
+      }
+      
+      if (resExams.success) {
+        setRawExams(resExams.data);
+      }
+    }
+    loadData();
+  }, [refreshKey]);
+
+  const exams = useMemo(() => {
+    return rawExams.map(re => {
+      const mappedQuestions = (re.questions || []).map((eq: any) => {
+        const foundQ = availableQuestions.find(aq => aq.id === eq.questionId) || { 
+          id: eq.questionId, 
+          text: 'Soal tidak ditemukan', 
+          type: 'pilihan_ganda', 
+          difficulty: 'mudah', 
+          points: eq.points 
+        };
+        return {
+          id: eq.id,
+          questionId: eq.questionId,
+          question: foundQ,
+          order: eq.order,
+          points: eq.points
+        };
+      });
+      return {
+        ...re,
+        questions: mappedQuestions
+      };
+    });
+  }, [rawExams, availableQuestions]);
+
   // Filtered exams
   const filteredExams = useMemo(() => {
-    return MOCK_EXAMS.filter(exam => {
+    return exams.filter(exam => {
       const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = filterStatus === 'all' || exam.status === filterStatus;
       const matchesSubject = filterSubject === 'all' || exam.subjectId === filterSubject;
       return matchesSearch && matchesStatus && matchesSubject;
     });
-  }, [searchQuery, filterStatus, filterSubject, refreshKey]);
+  }, [searchQuery, filterStatus, filterSubject, exams]);
 
   // Available questions for form (from mock)
-  const availableQuestions = MOCK_QUESTIONS;
   const filteredAvailable = useMemo(() => {
     if (!form.subjectId) return availableQuestions;
     return availableQuestions.filter(q => q.subjectId === form.subjectId);
@@ -216,14 +273,16 @@ export default function ExamManager() {
     };
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     const newExam = buildExam('draft');
-    if (selectedExam) {
-      const idx = MOCK_EXAMS.findIndex(e => e.id === selectedExam.id);
-      if (idx !== -1) MOCK_EXAMS[idx] = newExam;
+    
+    const result = await publishExam(newExam);
+    if (result.success) {
+      toast.success('Draft ujian berhasil disimpan!');
     } else {
-      MOCK_EXAMS.push(newExam);
+      toast.error(result.error || 'Gagal menyimpan draft ke database');
     }
+
     setRefreshKey(k => k + 1);
     setViewMode('list');
     setSelectedExam(null);
@@ -232,21 +291,10 @@ export default function ExamManager() {
 
   const handlePublish = async () => {
     const newExam = buildExam('active');
-    if (selectedExam) {
-      const idx = MOCK_EXAMS.findIndex(e => e.id === selectedExam.id);
-      if (idx !== -1) MOCK_EXAMS[idx] = newExam;
-    } else {
-      MOCK_EXAMS.push(newExam);
-    }
     
-    // Save to database permanently
     const result = await publishExam(newExam);
     if (result.success) {
-      toast.success('Ujian berhasil dipublikasikan secara permanen ke database!');
-      // Update ID to database ID if it was a new mock ID
-      if (result.examId && !selectedExam) {
-         newExam.id = result.examId;
-      }
+      toast.success('Ujian berhasil dipublikasikan!');
     } else {
       toast.error(result.error || 'Gagal mempublikasikan ke database');
     }
@@ -255,6 +303,20 @@ export default function ExamManager() {
     setViewMode('list');
     setSelectedExam(null);
     setForm(emptyForm);
+  };
+
+  const handleDeleteExam = async () => {
+    if (selectedExam) {
+      const res = await deleteExam(selectedExam.id);
+      if (res.success) {
+        toast.success('Ujian berhasil dihapus');
+        setRefreshKey(k => k + 1);
+        setShowDeleteDialog(false);
+        setSelectedExam(null);
+      } else {
+        toast.error('Gagal menghapus ujian', { description: res.error });
+      }
+    }
   };
 
   const handleBackToList = () => {
@@ -452,7 +514,7 @@ export default function ExamManager() {
             </DialogHeader>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Batal</Button>
-              <Button variant="destructive" onClick={() => setShowDeleteDialog(false)}>
+              <Button variant="destructive" onClick={handleDeleteExam}>
                 <FontAwesomeIcon icon={faTrash} className="text-xs mr-1.5" />
                 Hapus
               </Button>

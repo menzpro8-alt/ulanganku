@@ -9,6 +9,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ThemeToggle } from '@/components/shared/ThemeToggle';
 import { RoleSelector } from './RoleSelector';
 
+// Admin components
+import AdminDashboard from '@/components/admin/AdminDashboard';
+
 // Teacher components
 import { TeacherDashboard } from '@/components/teacher/TeacherDashboard';
 import { QuestionBank } from '@/components/teacher/QuestionBank';
@@ -23,6 +26,11 @@ import TeacherReports from '@/components/teacher/TeacherReports';
 import StudentDashboard from '@/components/student/StudentDashboard';
 import ExamView from '@/components/student/ExamView';
 import ExamResults from '@/components/student/ExamResults';
+
+// Admin sidebar navigation items
+const ADMIN_NAV = [
+  { key: 'admin_dashboard' as const, label: 'Dashboard Admin', icon: 'shield-halved' },
+];
 
 // Teacher sidebar navigation items
 const TEACHER_NAV = [
@@ -44,6 +52,7 @@ const STUDENT_NAV = [
 
 // View title mapping
 const VIEW_TITLES: Record<string, string> = {
+  admin_dashboard: 'Dashboard Admin',
   teacher_dashboard: 'Dashboard',
   teacher_exam_manager: 'Ujian',
   teacher_question_bank: 'Bank Soal',
@@ -75,7 +84,7 @@ export function AppShell() {
     return <ExamResults />;
   }
 
-  const navItems = role === 'teacher' ? TEACHER_NAV : STUDENT_NAV;
+  const navItems = role === 'admin' ? ADMIN_NAV : role === 'teacher' ? TEACHER_NAV : STUDENT_NAV;
 
   const handleNavClick = (view: string) => {
     setView(view as typeof currentView);
@@ -92,6 +101,8 @@ export function AppShell() {
   // Render content based on current view
   const renderContent = () => {
     switch (currentView) {
+      case 'admin_dashboard':
+        return <AdminDashboard />;
       case 'teacher_dashboard':
         return <TeacherDashboard />;
       case 'teacher_exam_manager':
@@ -225,16 +236,18 @@ export function AppShell() {
             <Badge
               variant="secondary"
               className={
-                role === 'teacher'
+                role === 'admin'
+                  ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                  : role === 'teacher'
                   ? 'bg-primary/10 text-primary border-primary/20'
                   : 'bg-teal/10 text-teal border-teal/20'
               }
             >
               <Icon
-                icon={role === 'teacher' ? 'chalkboard-user' : 'graduation-cap'}
+                icon={role === 'admin' ? 'shield-halved' : role === 'teacher' ? 'chalkboard-user' : 'graduation-cap'}
                 size="sm"
               />
-              {role === 'teacher' ? 'Guru' : 'Siswa'}
+              {role === 'admin' ? 'Admin' : role === 'teacher' ? 'Guru' : 'Siswa'}
             </Badge>
           </div>
         </header>

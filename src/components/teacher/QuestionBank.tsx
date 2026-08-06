@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useExamStore } from '@/lib/store';
 import {
   QUESTION_TYPE_LABELS,
@@ -8,7 +8,8 @@ import {
   DIFFICULTY_LABELS,
   DIFFICULTY_COLORS,
 } from '@/lib/types';
-import { SUBJECTS, CLASS_GRADES, TOPICS, MOCK_QUESTION_BANKS, MOCK_QUESTIONS } from '@/lib/mock-data';
+import { SUBJECTS, CLASS_GRADES, TOPICS } from '@/lib/mock-data';
+import { getQuestionBanks, updateQuestionBank, deleteQuestionBank } from '@/app/actions/bank';
 import { Icon } from '@/components/shared/Icon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,21 @@ export function QuestionBank() {
     setView,
   } = useExamStore();
 
+  const [banks, setBanks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const res = await getQuestionBanks();
+      if (res.success) {
+        setBanks(res.data);
+      }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
   // Filter topics based on selected subject
   const filteredTopics = useMemo(() => {
     if (!filterSubject) return TOPICS;
@@ -45,7 +61,7 @@ export function QuestionBank() {
 
   // Filter question banks based on filters
   const filteredBanks = useMemo(() => {
-    return MOCK_QUESTION_BANKS.filter((bank) => {
+    return banks.filter((bank) => {
       if (filterSubject && filterSubject !== 'all' && bank.subjectId !== filterSubject) return false;
       if (filterClass && filterClass !== 'all' && bank.classGradeId !== filterClass) return false;
       if (filterTopic && filterTopic !== 'all' && bank.topicId !== filterTopic) return false;
@@ -59,23 +75,24 @@ export function QuestionBank() {
       }
       return true;
     });
-  }, [filterSubject, filterClass, filterTopic, searchQuery]);
+  }, [banks, filterSubject, filterClass, filterTopic, searchQuery]);
 
   // Get subject/class/topic names
   const getSubjectName = (id: string) => SUBJECTS.find((s) => s.id === id)?.name || '';
   const getClassName = (id: string) => CLASS_GRADES.find((c) => c.id === id)?.name || '';
   const getTopicName = (id: string) => TOPICS.find((t) => t.id === id)?.name || '';
 
-  // Get type distribution for a bank
-  const getTypeDistribution = (bank: typeof MOCK_QUESTION_BANKS[0]) => {
+  const getTypeDistribution = (bank: any) => {
     const dist: Record<string, number> = {};
-    bank.questions.forEach((q) => {
-      dist[q.type] = (dist[q.type] || 0) + 1;
-    });
+    if (Array.isArray(bank.questions)) {
+      bank.questions.forEach((q: any) => {
+        dist[q.type] = (dist[q.type] || 0) + 1;
+      });
+    }
     return dist;
   };
 
-  const handleBankClick = (bank: typeof MOCK_QUESTION_BANKS[0]) => {
+  const handleBankClick = (bank: any) => {
     setSelectedQuestionBank(bank);
   };
 
@@ -87,23 +104,39 @@ export function QuestionBank() {
     setView('teacher_question_editor');
   };
 
-  const handleDeleteQuestion = (questionId: string) => {
+  const handleDeleteQuestion = async (questionId: string) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus soal ini?')) {
       if (!selectedQuestionBank) return;
       
       const bank = selectedQuestionBank;
-      // Remove from the bank's questions array
-      bank.questions = bank.questions.filter((q) => q.id !== questionId);
-      bank.questionCount = bank.questions.length;
+      const updatedQuestions = Array.isArray(bank.questions) 
+        ? bank.questions.filter((q: any) => q.id !== questionId) 
+        : [];
       
-      // Also remove from global MOCK_QUESTIONS
-      const idx = MOCK_QUESTIONS.findIndex((q) => q.id === questionId);
-      if (idx !== -1) {
-        MOCK_QUESTIONS.splice(idx, 1);
-      }
+      const res = await updateQuestionBank(bank.id, {
+        questions: updatedQuestions,
+        questionCount: updatedQuestions.length
+      });
 
-      // Update state reference to trigger re-render
-      setSelectedQuestionBank({ ...bank });
+      if (res.success) {
+        const updatedBank = { ...bank, questions: updatedQuestions, questionCount: updatedQuestions.length };
+        setBanks(prev => prev.map(b => b.id === bank.id ? updatedBank : b));
+        setSelectedQuestionBank(updatedBank);
+      } else {
+        alert('Gagal menghapus soal');
+      }
+    }
+  };
+
+  const handleDeleteBank = async (e: React.MouseEvent, bankId: string) => {
+    e.stopPropagation();
+    if (window.confirm('Apakah Anda yakin ingin menghapus bank soal ini?')) {
+      const res = await deleteQuestionBank(bankId);
+      if (res.success) {
+        setBanks(prev => prev.filter(b => b.id !== bankId));
+      } else {
+        alert('Gagal menghapus bank soal');
+      }
     }
   };
 
@@ -149,7 +182,7 @@ export function QuestionBank() {
 
         {/* Questions list */}
         <div className="space-y-3">
-          {bank.questions.length === 0 ? (
+          {!Array.isArray(bank.questions) || bank.questions.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Icon icon="folder-open" size="lg" className="text-[#94A3B8] mx-auto mb-3" />
@@ -161,7 +194,7 @@ export function QuestionBank() {
               </CardContent>
             </Card>
           ) : (
-            bank.questions.map((q, index) => (
+            bank.questions.map((q: any, index: number) => (
               <Card key={q.id} className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
@@ -310,7 +343,13 @@ export function QuestionBank() {
       </Card>
 
       {/* Bank Cards */}
-      {filteredBanks.length === 0 ? (
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-[#636E72]">Memuat data bank soal...</p>
+          </CardContent>
+        </Card>
+      ) : filteredBanks.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             <Icon icon="folder-open" size="lg" className="text-[#94A3B8] mx-auto mb-3" />
@@ -369,8 +408,16 @@ export function QuestionBank() {
                     ))}
                   </div>
 
-                  {/* Arrow indicator */}
-                  <div className="flex justify-end mt-3">
+                  {/* Actions & Arrow indicator */}
+                  <div className="flex justify-between items-center mt-3">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 hover:bg-red-50 hover:text-red-500 text-[#CBD5E1]"
+                      onClick={(e) => handleDeleteBank(e, bank.id)}
+                    >
+                      <Icon icon="trash-can" size="sm" />
+                    </Button>
                     <Icon
                       icon="chevron-right"
                       size="sm"

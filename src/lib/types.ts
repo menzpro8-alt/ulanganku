@@ -196,6 +196,7 @@ export interface MonitoringData {
 // Navigation
 export type AppView = 
   | 'role_select'
+  | 'admin_dashboard'
   | 'teacher_dashboard'
   | 'teacher_question_bank'
   | 'teacher_question_editor'
@@ -208,7 +209,7 @@ export type AppView =
   | 'student_exam'
   | 'student_results';
 
-export type UserRole = 'teacher' | 'student' | null;
+export type UserRole = 'admin' | 'teacher' | 'student' | null;
 
 // App State
 export interface AppState {

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { 
   AppView, UserRole, QuestionBank, Exam, Question, 
   QuestionType, StudentExamSession, StudentAnswer,
@@ -70,7 +71,7 @@ interface ExamStore {
 
 const VIEW_HISTORY: AppView[] = [];
 
-export const useExamStore = create<ExamStore>((set, get) => ({
+export const useExamStore = create<ExamStore>()(persist((set, get) => ({
   // Navigation
   role: null,
   currentView: 'role_select',
@@ -152,4 +153,4 @@ export const useExamStore = create<ExamStore>((set, get) => ({
   setAiQuestionCount: (aiQuestionCount) => set({ aiQuestionCount }),
   setAiQuestionTypes: (aiQuestionTypes) => set({ aiQuestionTypes }),
   setAiModel: (aiModel) => set({ aiModel }),
-}));
+}), { name: 'exam-store', partialize: (state) => ({ role: state.role, currentView: state.currentView, studentSession: state.studentSession }) }));

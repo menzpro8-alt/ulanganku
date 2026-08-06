@@ -46,7 +46,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useExamStore } from '@/lib/store';
-import { SUBJECTS, CLASS_GRADES, MOCK_QUESTIONS, MOCK_QUESTION_BANKS } from '@/lib/mock-data';
+import { SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
 import { saveGeneratedQuestions } from '@/app/actions/question';
 import {
   QuestionType,
@@ -356,93 +356,53 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
 
 
 
-  const persistToMockData = useCallback((selected: AIGeneratedQuestion[], draft: boolean) => {
-    const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
-    const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
-    const topicName = topic || subjectName;
-
-    const newQuestions: Question[] = selected.map((q, i) => ({
-      id: `ai-${Date.now()}-${i}`,
-      type: q.type,
-      subjectId: aiSubject || 'custom',
-      classGradeId: aiGrade || 'c1',
-      topicId: 'custom',
-      difficulty: q.difficulty,
-      text: q.text,
-      points: q.points,
-      options: q.options,
-      matchingPairs: q.matchingPairs,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-
-    const bankName = draft
-      ? `Draft - ${subjectName} - ${topicName}`
-      : `Bank Soal ${subjectName} - ${topicName}`;
-
-    MOCK_QUESTIONS.push(...newQuestions);
-
-    let bank: QuestionBank | undefined;
-    if (!draft) {
-      bank = MOCK_QUESTION_BANKS.find(b => b.name === bankName);
-      if (bank) {
-        bank.questions.push(...newQuestions);
-        bank.questionCount = bank.questions.length;
-      }
-    }
-    if (!bank) {
-      const newBank: QuestionBank = {
-        id: `qb-ai-${Date.now()}`,
-        name: bankName,
-        subjectId: aiSubject || 'custom',
-        classGradeId: aiGrade || 'c1',
-        topicId: 'custom',
-        description: `Soal AI: ${subjectName} - ${topicName} (${gradeName})${draft ? ' [Draft]' : ''}`,
-        questionCount: newQuestions.length,
-        questions: newQuestions,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      MOCK_QUESTION_BANKS.push(newBank);
-    }
-
-    return newQuestions.length;
-  }, [aiSubject, customSubject, aiGrade, topic]);
-
   const handleSaveAll = useCallback(async () => {
     const selected = generatedQuestions.filter(q => q.isSelected);
     if (selected.length === 0) return;
-
-    const count = persistToMockData(selected, false);
 
     try {
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
-      await saveGeneratedQuestions(selected, subjectName, gradeName, topicName);
-    } catch {}
+      
+      const res = await saveGeneratedQuestions(selected, subjectName, gradeName, topicName);
+      if (res.success) {
+        toast.success(`${res.count} soal berhasil disimpan!`, {
+          description: 'Soal telah ditambahkan ke Bank Soal.',
+        });
+        setGeneratedQuestions([]);
+        setView('teacher_question_bank');
+      } else {
+        toast.error('Gagal menyimpan soal', { description: res.error });
+      }
+    } catch (e) {
+      toast.error('Terjadi kesalahan saat menyimpan soal');
+    }
+  }, [generatedQuestions, aiSubject, customSubject, aiGrade, topic, setView]);
 
-    toast.success(`${count} soal berhasil disimpan!`, {
-      description: 'Soal telah ditambahkan ke Bank Soal.',
-    });
-
-    setGeneratedQuestions([]);
-    setView('teacher_question_bank');
-  }, [generatedQuestions, aiSubject, customSubject, aiGrade, topic, setView, persistToMockData]);
-
-  const handleSaveDraft = useCallback(() => {
+  const handleSaveDraft = useCallback(async () => {
     const selected = generatedQuestions.filter(q => q.isSelected);
     if (selected.length === 0) return;
 
-    const count = persistToMockData(selected, true);
-
-    toast.success(`${count} soal disimpan sebagai draft`, {
-      description: 'Draft tersedia di Bank Soal dengan label "Draft - ...".',
-    });
-
-    setGeneratedQuestions([]);
-    setView('teacher_question_bank');
-  }, [generatedQuestions, setView, persistToMockData]);
+    try {
+      const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
+      const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
+      const topicName = (topic || subjectName) + ' (Draft)';
+      
+      const res = await saveGeneratedQuestions(selected, subjectName, gradeName, topicName);
+      if (res.success) {
+        toast.success(`${res.count} soal disimpan sebagai draft`, {
+          description: 'Draft tersedia di Bank Soal.',
+        });
+        setGeneratedQuestions([]);
+        setView('teacher_question_bank');
+      } else {
+        toast.error('Gagal menyimpan soal', { description: res.error });
+      }
+    } catch (e) {
+      toast.error('Terjadi kesalahan saat menyimpan draft');
+    }
+  }, [generatedQuestions, aiSubject, customSubject, aiGrade, topic, setView]);
 
   const handleClearAll = useCallback(() => {
     setGeneratedQuestions([]);

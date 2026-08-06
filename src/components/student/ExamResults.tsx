@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { getExam } from '@/app/actions/exam';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCheckCircle,
@@ -19,16 +20,31 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useExamStore } from '@/lib/store';
-import { MOCK_EXAMS, SUBJECTS } from '@/lib/mock-data';
+import { SUBJECTS } from '@/lib/mock-data';
 import { QUESTION_TYPE_LABELS, DIFFICULTY_LABELS, DIFFICULTY_COLORS } from '@/lib/types';
 import type { Question, StudentAnswer } from '@/lib/types';
 
 export default function ExamResults() {
   const { studentSession, studentAnswers, setView, resetAntiCheat } = useExamStore();
-  const exam = MOCK_EXAMS[0];
+  const [exam, setExam] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      if (studentSession?.examId) {
+        const res = await getExam(studentSession.examId);
+        if (res.success && res.data) {
+          setExam(res.data);
+        }
+      }
+      setLoading(false);
+    }
+    load();
+  }, [studentSession]);
 
   // Calculate score and per-question results
   const results = useMemo(() => {
+    if (!exam) return { questionResults: [], totalPoints: 0, earnedPoints: 0, scorePercentage: 0, passed: false };
     const questions = exam.questions.map(eq => eq.question);
     const totalPoints = exam.questions.reduce((sum, eq) => sum + eq.points, 0);
     const questionResults = questions.map((question, index) => {
@@ -159,6 +175,9 @@ export default function ExamResults() {
     resetAntiCheat();
     setView('student_dashboard');
   };
+
+  if (loading) return <div className="flex h-screen items-center justify-center bg-cool-gray">Loading...</div>;
+  if (!exam) return <div className="flex h-screen items-center justify-center bg-cool-gray">Ujian tidak ditemukan</div>;
 
   return (
     <div className="min-h-screen bg-cool-gray page-enter">

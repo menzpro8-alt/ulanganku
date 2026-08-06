@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCircleDot,
@@ -51,8 +51,9 @@ import {
   DIFFICULTY_LABELS,
   QuestionBank,
 } from '@/lib/types';
-import { SUBJECTS, CLASS_GRADES, TOPICS, MOCK_QUESTIONS, MOCK_QUESTION_BANKS } from '@/lib/mock-data';
+import { SUBJECTS, CLASS_GRADES, TOPICS } from '@/lib/mock-data';
 import { saveGeneratedQuestions } from '@/app/actions/question';
+import { getQuestionBanks, updateQuestionBank, createQuestionBank } from '@/app/actions/bank';
 
 // ---------------------------------------------------------------------------
 // Question type card definitions
@@ -257,6 +258,11 @@ export default function QuestionEditor() {
   );
 
   // Save handlers
+  const saveToBackend = async (questionData: any) => {
+    // Save to Database via Question model (which now automatically updates the QuestionBank)
+    await saveGeneratedQuestions([questionData], subjectId, classGradeId, topicId);
+  };
+
   const handleSave = useCallback(async () => {
     const questionData = {
       id: 'q_' + Date.now(),
@@ -275,41 +281,14 @@ export default function QuestionEditor() {
       matchingPairs: questionType === 'menjodohkan' ? matchingPairs : undefined,
     } as any;
     
-    // Save to local mock data so it appears in Question Bank immediately
-    MOCK_QUESTIONS.push(questionData);
-    
-    // Find or create bank
-    let bank = MOCK_QUESTION_BANKS.find(b => b.subjectId === subjectId && b.classGradeId === classGradeId && b.topicId === topicId);
-    if (bank) {
-      bank.questions.push(questionData);
-      bank.questionCount = bank.questions.length;
-    } else {
-      const subjectName = SUBJECTS.find((s) => s.id === subjectId)?.name || 'Custom Subject';
-      const topicName = TOPICS.find((t) => t.id === topicId)?.name || 'Custom Topic';
-      const newBank: QuestionBank = {
-        id: `qb-manual-${Date.now()}`,
-        name: `Bank Soal ${subjectName} - ${topicName}`,
-        subjectId,
-        classGradeId,
-        topicId,
-        description: `Soal manual ${subjectName}`,
-        questionCount: 1,
-        questions: [questionData],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      MOCK_QUESTION_BANKS.push(newBank);
-    }
-    
-    // Save to database
     try {
-      await saveGeneratedQuestions([questionData], subjectId, classGradeId, topicId);
+      await saveToBackend(questionData);
+      alert('Soal berhasil disimpan!');
+      setView('teacher_question_bank');
     } catch (e) {
-      console.error('Failed to save to DB', e);
+      console.error('Failed to save', e);
+      alert('Gagal menyimpan soal');
     }
-
-    alert('Soal berhasil disimpan!');
-    setView('teacher_question_bank');
   }, [
     questionType,
     subjectId,
@@ -341,53 +320,27 @@ export default function QuestionEditor() {
       matchingPairs: questionType === 'menjodohkan' ? matchingPairs : undefined,
     } as any;
     
-    // Save to local mock data
-    MOCK_QUESTIONS.push(questionData);
-
-    // Find or create bank
-    let bank = MOCK_QUESTION_BANKS.find(b => b.subjectId === subjectId && b.classGradeId === classGradeId && b.topicId === topicId);
-    if (bank) {
-      bank.questions.push(questionData);
-      bank.questionCount = bank.questions.length;
-    } else {
-      const subjectName = SUBJECTS.find((s) => s.id === subjectId)?.name || 'Custom Subject';
-      const topicName = TOPICS.find((t) => t.id === topicId)?.name || 'Custom Topic';
-      const newBank: QuestionBank = {
-        id: `qb-manual-${Date.now()}`,
-        name: `Bank Soal ${subjectName} - ${topicName}`,
-        subjectId,
-        classGradeId,
-        topicId,
-        description: `Soal manual ${subjectName}`,
-        questionCount: 1,
-        questions: [questionData],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      MOCK_QUESTION_BANKS.push(newBank);
-    }
-
-    // Save to database
     try {
-      await saveGeneratedQuestions([questionData], subjectId, classGradeId, topicId);
+      await saveToBackend(questionData);
+      alert('Soal berhasil disimpan! Membuat soal baru...');
+      
+      // Reset form for new question
+      setQuestionText('');
+      setOptions([
+        { id: uid(), label: 'A', text: '', isCorrect: false },
+        { id: uid(), label: 'B', text: '', isCorrect: false },
+        { id: uid(), label: 'C', text: '', isCorrect: false },
+        { id: uid(), label: 'D', text: '', isCorrect: false },
+      ]);
+      setMatchingPairs([
+        { id: uid(), premise: '', response: '' },
+        { id: uid(), premise: '', response: '' },
+        { id: uid(), premise: '', response: '' },
+      ]);
     } catch (e) {
-      console.error('Failed to save to DB', e);
+      console.error('Failed to save', e);
+      alert('Gagal menyimpan soal');
     }
-    
-    alert('Soal berhasil disimpan! Membuat soal baru...');
-    // Reset form for new question
-    setQuestionText('');
-    setOptions([
-      { id: uid(), label: 'A', text: '', isCorrect: false },
-      { id: uid(), label: 'B', text: '', isCorrect: false },
-      { id: uid(), label: 'C', text: '', isCorrect: false },
-      { id: uid(), label: 'D', text: '', isCorrect: false },
-    ]);
-    setMatchingPairs([
-      { id: uid(), premise: '', response: '' },
-      { id: uid(), premise: '', response: '' },
-      { id: uid(), premise: '', response: '' },
-    ]);
   }, [
     questionType,
     subjectId,

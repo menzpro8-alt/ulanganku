@@ -44,24 +44,66 @@ export const TOPICS: Topic[] = [
 ];
 
 // ============================================================
+// Helper for persistent mock data
+// ============================================================
+function createPersistentArray<T>(key: string, initialData: T[]): T[] {
+  if (typeof window === 'undefined') {
+    return initialData;
+  }
+  
+  const stored = localStorage.getItem(key);
+  let data = initialData;
+  if (stored) {
+    try {
+      data = JSON.parse(stored);
+    } catch (e) {}
+  }
+  
+  return new Proxy(data, {
+    set(target: any, property: string | symbol, value: any) {
+      target[property] = value;
+      try {
+        localStorage.setItem(key, JSON.stringify(target));
+      } catch (e) {}
+      return true;
+    },
+    deleteProperty(target: any, property: string | symbol) {
+      delete target[property];
+      try {
+        localStorage.setItem(key, JSON.stringify(target));
+      } catch (e) {}
+      return true;
+    }
+  });
+}
+
+// ============================================================
 // Mock Questions
 // ============================================================
-export const MOCK_QUESTIONS: Question[] = [];
+export const MOCK_QUESTIONS: Question[] = createPersistentArray('mock_questions', []);
 
 // ============================================================
 // Mock Question Banks
 // ============================================================
-export const MOCK_QUESTION_BANKS: QuestionBank[] = [];
+export const MOCK_QUESTION_BANKS: QuestionBank[] = createPersistentArray('mock_banks', []);
 
 // ============================================================
 // Mock Exams
 // ============================================================
-export const MOCK_EXAMS: Exam[] = [];
+export const MOCK_EXAMS: Exam[] = createPersistentArray('mock_exams', []);
 
 // ============================================================
 // Mock Students
 // ============================================================
-export const MOCK_STUDENTS: Student[] = [];
+export const MOCK_STUDENTS: Student[] = createPersistentArray('mock_students', [
+  {
+    id: '12345',
+    name: 'Budi Santoso',
+    email: 'budi@sekolah.id',
+    classGrade: 'Kelas X',
+    classGradeId: 'c4'
+  }
+]);
 
 // ============================================================
 // Mock Student Exam Sessions (for monitoring)

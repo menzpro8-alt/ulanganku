@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faFileAlt,
@@ -46,7 +46,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { MOCK_EXAMS, MOCK_STUDENTS, SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
+import { MOCK_STUDENTS, SUBJECTS, CLASS_GRADES } from '@/lib/mock-data';
+import { getActiveExams, getExams } from '@/app/actions/exam';
+import { getSessions, createSession } from '@/app/actions/session';
 import { useExamStore } from '@/lib/store';
 import type { Exam } from '@/lib/types';
 
@@ -128,7 +130,13 @@ function ScoreRing({ score, total, size = 56 }: { score: number; total: number; 
 
 export default function StudentDashboard() {
   const { setView, setStudentSession } = useExamStore();
-  const student = MOCK_STUDENTS[0];
+  const student = MOCK_STUDENTS[0] || {
+    id: 'guest',
+    name: 'Siswa Tamu',
+    email: 'siswa@sekolah.id',
+    classGrade: 'Kelas X',
+    classGradeId: 'c4'
+  };
   const [notifyExams, setNotifyExams] = useState<Set<string>>(new Set());
   const [historySort, setHistorySort] = useState('latest');
 
@@ -137,42 +145,39 @@ export default function StudentDashboard() {
   const [tokenInput, setTokenInput] = useState('');
   const [tokenError, setTokenError] = useState(false);
 
-  const activeExams = MOCK_EXAMS.filter(e => e.status === 'active');
-  const upcomingExams = MOCK_EXAMS.filter(e => e.status === 'published');
+  const [activeExams, setActiveExams] = useState<any[]>([]);
+  const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
+  const [mockCompletedExams, setMockCompletedExams] = useState<any[]>([]);
+  
+  useEffect(() => {
+    async function loadData() {
+      const examsRes = await getExams();
+      if (examsRes.success) {
+        setActiveExams(examsRes.data?.filter((e: any) => e.status === 'active') || []);
+        setUpcomingExams(examsRes.data?.filter((e: any) => e.status === 'published') || []);
+      }
+      
+      const sessionsRes = await getSessions();
+      if (sessionsRes.success) {
+        const completed = (sessionsRes.data || [])
+          .filter((s: any) => s.status === 'completed' || s.status === 'auto_submitted')
+          .map((s: any) => ({
+            id: s.id,
+            title: s.exam?.title || 'Ujian Selesai',
+            subjectName: getSubjectName(s.exam?.subjectId || 's1'),
+            subjectId: s.exam?.subjectId || 's1',
+            dateTaken: s.endTime || s.startTime,
+            score: s.score,
+            totalPoints: 100, // mock total
+            passed: s.score >= (s.exam?.passingScore || 70),
+          }));
+        setMockCompletedExams(completed);
+      }
+    }
+    loadData();
+  }, []);
 
-  // Mock completed exam data
-  const mockCompletedExams = [
-    {
-      id: 'completed-1',
-      title: 'Ujian Harian Matematika - Aljabar',
-      subjectName: 'Matematika',
-      subjectId: 's1',
-      dateTaken: '2025-01-18',
-      score: 85,
-      totalPoints: 100,
-      passed: true,
-    },
-    {
-      id: 'completed-2',
-      title: 'Quiz Fisika - Hukum Newton',
-      subjectName: 'IPA (Fisika)',
-      subjectId: 's3',
-      dateTaken: '2025-01-15',
-      score: 45,
-      totalPoints: 50,
-      passed: true,
-    },
-    {
-      id: 'completed-3',
-      title: 'Ujian Bahasa Indonesia - Teks Narasi',
-      subjectName: 'Bahasa Indonesia',
-      subjectId: 's2',
-      dateTaken: '2025-01-12',
-      score: 35,
-      totalPoints: 80,
-      passed: false,
-    },
-  ];
+  
 
   const sortedHistory = [...mockCompletedExams].sort((a, b) => {
     if (historySort === 'highest') return b.score / b.totalPoints - a.score / a.totalPoints;
@@ -212,16 +217,21 @@ export default function StudentDashboard() {
       elem.requestFullscreen().catch(console.error);
     }
 
-    setStudentSession({
+    const newSession = {
       id: `session-${Date.now()}`,
       studentId: student.id,
-      student: student,
       examId: exam.id,
       status: 'active',
       antiCheatStrikes: 0,
       startTime: new Date().toISOString(),
       currentQuestionIndex: 0,
       answers: [],
+      score: 0
+    };
+    createSession(newSession).then(res => {
+      if(res.success) {
+        setStudentSession({ ...newSession, student } as any);
+      }
     });
     setView('student_exam');
   };
@@ -236,8 +246,8 @@ export default function StudentDashboard() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 {/* Student initials avatar - glassmorphism */}
-                <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/30">
-                  <span className="text-2xl font-bold text-white">{getInitials(student.name)}</span>
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shrink-0 border border-white/30">
+                  <span className="text-2xl font-bold text-[#5B6ABF]">{getInitials(student.name)}</span>
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white">

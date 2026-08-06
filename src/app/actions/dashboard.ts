@@ -61,14 +61,21 @@ export async function getDashboardStats() {
     ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5);
 
     // Compute AVG_SCORE_DATA (since we have no completed exams, let's group by subject if available)
-    const sessionsWithSubject = await db.studentExamSession.findMany({
-      where: { status: 'completed', score: { not: null } },
-      include: { exam: true }
+    const sessionsWithScore = await db.studentExamSession.findMany({
+      where: { status: 'completed', score: { not: null } }
     });
 
+    const examIds = [...new Set(sessionsWithScore.map(s => s.examId))];
+    const exams = await db.exam.findMany({
+      where: { id: { in: examIds } },
+      select: { id: true, subjectId: true }
+    });
+
+    const examSubjectMap = new Map(exams.map(e => [e.id, e.subjectId]));
+
     const subjectScores: Record<string, { total: number, count: number }> = {};
-    sessionsWithSubject.forEach(s => {
-      const sub = s.exam.subject;
+    sessionsWithScore.forEach(s => {
+      const sub = examSubjectMap.get(s.examId) || 'Unknown';
       if (!subjectScores[sub]) subjectScores[sub] = { total: 0, count: 0 };
       subjectScores[sub].total += (s.score || 0);
       subjectScores[sub].count += 1;
