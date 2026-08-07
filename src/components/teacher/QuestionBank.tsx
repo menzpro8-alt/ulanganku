@@ -47,6 +47,14 @@ export function QuestionBank() {
       const res = await getQuestionBanks();
       if (res.success) {
         setBanks(res.data);
+        
+        // Update selectedQuestionBank if it exists to prevent stale data when adding new questions
+        if (selectedQuestionBank) {
+          const updatedSelected = res.data.find((b: any) => b.id === selectedQuestionBank.id);
+          if (updatedSelected) {
+            setSelectedQuestionBank(updatedSelected);
+          }
+        }
       }
       setLoading(false);
     }
