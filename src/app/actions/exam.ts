@@ -49,7 +49,8 @@ export async function getActiveExams() {
   try {
     const exams = await db.exam.findMany({
       where: { status: { in: ['published', 'active'] } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      include: { questions: true }
     });
     return { success: true, data: exams };
   } catch (error: any) {

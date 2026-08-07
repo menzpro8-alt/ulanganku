@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { getExam } from '@/app/actions/exam';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -119,7 +120,7 @@ export default function ExamResults() {
 
   // Use session score as fallback if available
   const displayScore = studentSession?.score ?? results.scorePercentage;
-  const displayPassed = displayScore >= exam.passingScore;
+  const displayPassed = displayScore >= (exam?.passingScore ?? 0);
 
   const getCorrectAnswerText = (question: Question): string => {
     switch (question.type) {

@@ -96,29 +96,7 @@ export default function ExamView() {
     shuffledQuestions.some(q => q.id === qId)
   ).length;
 
-  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Webcam Proctoring (Disabled)
-  /*
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(s => {
-          stream = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => console.error("Webcam access denied", err));
-    }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
-  */
 
   const formatTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -145,12 +123,50 @@ export default function ExamView() {
     }
 
     if (studentSession) {
+      // Calculate real score
+      let earnedPoints = 0;
+      let totalPoints = 0;
+      
+      if (exam && exam.questions) {
+        exam.questions.forEach((eq: any) => {
+          // Flatten Prisma nested content
+          const question = { ...eq.question, ...(eq.question as any).content, id: eq.question.id };
+          const points = eq.points ?? question.points ?? 10;
+          totalPoints += points;
+          
+          const answer = studentAnswers.get(question.id);
+          if (answer) {
+            if (question.type === 'pilihan_ganda') {
+              const correctOpt = question.options?.find((o: any) => o.isCorrect);
+              if (correctOpt && answer.selectedOptionIds?.includes(correctOpt.id)) {
+                earnedPoints += points;
+              }
+            } else if (question.type === 'pilihan_ganda_kompleks') {
+              const correctIds = question.options?.filter((o: any) => o.isCorrect).map((o: any) => o.id).sort() || [];
+              const selectedIds = (answer.selectedOptionIds || []).sort();
+              if (correctIds.length === selectedIds.length && correctIds.every((id: string, i: number) => id === selectedIds[i])) {
+                earnedPoints += points;
+              }
+            } else if (question.type === 'menjodohkan') {
+              const pairs = question.matchingPairs || [];
+              const matches = answer.matchingAnswers || [];
+              const allCorrect = pairs.every((p: any) => matches.find((m: any) => m.premiseId === p.id)?.responseId === p.id);
+              if (allCorrect && matches.length === pairs.length) {
+                earnedPoints += points;
+              }
+            }
+          }
+        });
+      }
+      
+      const calculatedScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+
       const updatedSession = {
         ...studentSession,
         status: antiCheatStrikes >= 3 ? 'auto_submitted' : 'completed',
         endTime: new Date().toISOString(),
         answers: Array.from(studentAnswers.values()),
-        score: Math.floor(Math.random() * 40) + 60,
+        score: calculatedScore,
       };
       setStudentSession(updatedSession as any);
       updateSession(studentSession.id, updatedSession);
@@ -159,7 +175,7 @@ export default function ExamView() {
     setTimeout(() => {
       setView('student_results');
     }, 500);
-  }, [isSubmitted, studentSession, antiCheatStrikes, studentAnswers, setStudentSession, setView]);
+  }, [isSubmitted, studentSession, antiCheatStrikes, studentAnswers, setStudentSession, setView, exam]);
 
   // Timer logic
   useEffect(() => {
@@ -269,12 +285,7 @@ export default function ExamView() {
       {/* Anti-Cheat Overlay */}
       <AntiCheatOverlay />
 
-      {/* Webcam Preview (Disabled) */}
-      {false && (
-        <div className="fixed bottom-4 right-4 z-50 w-32 h-24 bg-black rounded-lg overflow-hidden border-2 border-slate-blue shadow-lg">
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-        </div>
-      )}
+
 
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-white border-b border-cool-gray-200 shadow-sm transition-all duration-300">

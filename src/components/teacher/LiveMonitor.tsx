@@ -377,7 +377,7 @@ export default function LiveMonitor() {
   // Heatmap Data (Question index distribution)
   // ---------------------------------------------------------------------------
   const heatmapData = currentExam
-    ? Array(currentExam.questions.length)
+    ? Array(currentExam.questions?.length || 0)
         .fill(0)
         .map((_, i) => ({
           question: `Q${i + 1}`,
@@ -453,7 +453,7 @@ export default function LiveMonitor() {
                 {currentExam.status === 'active' ? 'Berlangsung' : 'Terjadwal'}
               </Badge>
               <span className="text-xs" style={{ color: '#636e72' }}>
-                {currentExam.questions.length} soal
+                {currentExam.questions?.length || 0} soal
               </span>
             </div>
           )}

@@ -413,12 +413,20 @@ export default function QuestionRenderer({
   answer,
   onAnswer,
 }: QuestionRendererProps) {
+  // Normalize question to handle cases where properties are nested inside a 'content' field (e.g. from Prisma DB)
+  // Ensure the original question.id is preserved and not overwritten by content.id
+  const normalizedQuestion = {
+    ...question,
+    ...(question as any).content,
+    id: question.id,
+  } as Question;
+
   const renderQuestionContent = () => {
-    switch (question.type) {
+    switch (normalizedQuestion.type) {
       case 'pilihan_ganda':
         return (
           <SingleChoiceRenderer
-            question={question}
+            question={normalizedQuestion}
             answer={answer}
             onAnswer={onAnswer}
           />
@@ -426,7 +434,7 @@ export default function QuestionRenderer({
       case 'pilihan_ganda_kompleks':
         return (
           <MultiSelectRenderer
-            question={question}
+            question={normalizedQuestion}
             answer={answer}
             onAnswer={onAnswer}
           />
@@ -434,7 +442,7 @@ export default function QuestionRenderer({
       case 'menjodohkan':
         return (
           <MatchingPairsRenderer
-            question={question}
+            question={normalizedQuestion}
             answer={answer}
             onAnswer={onAnswer}
           />
@@ -442,7 +450,7 @@ export default function QuestionRenderer({
       case 'isian_singkat':
         return (
           <ShortAnswerRenderer
-            question={question}
+            question={normalizedQuestion}
             answer={answer}
             onAnswer={onAnswer}
           />
@@ -450,7 +458,7 @@ export default function QuestionRenderer({
       case 'essay':
         return (
           <EssayRenderer
-            question={question}
+            question={normalizedQuestion}
             answer={answer}
             onAnswer={onAnswer}
           />
@@ -469,18 +477,18 @@ export default function QuestionRenderer({
             variant="outline"
             className="gap-1.5 border-slate-blue/30 text-slate-blue"
           >
-            <FontAwesomeIcon icon={TYPE_ICONS[question.type] || faCircleDot} className="text-xs" />
-            {QUESTION_TYPE_LABELS[question.type] || question.type}
+            <FontAwesomeIcon icon={TYPE_ICONS[normalizedQuestion.type] || faCircleDot} className="text-xs" />
+            {QUESTION_TYPE_LABELS[normalizedQuestion.type] || normalizedQuestion.type}
           </Badge>
-          <Badge className={`border-0 ${DIFFICULTY_COLORS[question.difficulty] || 'bg-cool-gray-100 text-cool-gray-700'}`}>
-            {DIFFICULTY_LABELS[question.difficulty] || question.difficulty}
+          <Badge className={`border-0 ${DIFFICULTY_COLORS[normalizedQuestion.difficulty] || 'bg-cool-gray-100 text-cool-gray-700'}`}>
+            {DIFFICULTY_LABELS[normalizedQuestion.difficulty] || normalizedQuestion.difficulty}
           </Badge>
           <Badge variant="outline" className="text-charcoal-light">
-            {question.points} poin
+            {normalizedQuestion.points} poin
           </Badge>
         </div>
         <p className="text-lg text-charcoal leading-relaxed whitespace-pre-wrap">
-          {question.text}
+          {normalizedQuestion.text}
         </p>
       </div>
 

@@ -64,6 +64,20 @@
   --color-amber-light: #F59E0B;
   --color-sky: #0EA5E9;
   --color-sky-light: #38BDF8;
+
+  /* Custom App Palette Mapped to Theme Variables for Dark Mode Support */
+  --color-white: var(--card);
+  --color-slate-blue: var(--primary);
+  --color-slate-blue-light: #6366F1;
+  --color-slate-blue-dark: #4338CA;
+  --color-charcoal: var(--foreground);
+  --color-charcoal-light: var(--muted-foreground);
+  --color-cool-gray-50: var(--background);
+  --color-cool-gray-100: var(--muted);
+  --color-cool-gray-200: var(--border);
+  --color-cool-gray-300: var(--border);
+  --color-cool-gray-400: var(--muted-foreground);
+  --color-coral: var(--destructive);
 }
 
 :root {

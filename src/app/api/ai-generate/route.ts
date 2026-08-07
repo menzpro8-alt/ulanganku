@@ -146,7 +146,7 @@ All questions must be in Bahasa Indonesia and appropriate for the specified grad
         } else {
           throw new Error('No JSON array found in response');
         }
-      } catch {
+      } catch (err) { console.error("PUTER AI ERROR:", err);
         // Fallback to mock data
         return NextResponse.json({
           questions: generateFallbackQuestions(
@@ -189,7 +189,7 @@ All questions must be in Bahasa Indonesia and appropriate for the specified grad
       );
 
       return NextResponse.json({ questions, source: 'ai' });
-    } catch {
+    } catch (err) { console.error("PUTER AI ERROR:", err);
       // Fallback if AI call fails entirely
       return NextResponse.json({
         questions: generateFallbackQuestions(
@@ -203,7 +203,7 @@ All questions must be in Bahasa Indonesia and appropriate for the specified grad
         source: 'fallback',
       });
     }
-  } catch {
+  } catch (err) { console.error("PUTER AI ERROR:", err);
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }

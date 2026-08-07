@@ -136,58 +136,67 @@ export default function AIGenerator() {
     const step2 = setTimeout(() => setGenerationStep(2), 1800);
 
     try {
-      // (Removed Puter SDK check since we use server API)
+      if (!window.puter) {
+        throw new Error('Puter.js SDK not found. Please wait or reload the page.');
+      }
+      
+      const isSignedIn = await window.puter.auth.isSignedIn();
+      if (!isSignedIn) {
+        await window.puter.auth.signIn();
+      }
 
       const clampedCount = Math.min(Math.max(aiQuestionCount || 5, 1), 20);
       const requestedTypes = aiQuestionTypes && aiQuestionTypes.length > 0 ? aiQuestionTypes : ['pilihan_ganda'];
       
-
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
       const diff = mixedDifficulty ? 'sedang' : aiDifficulty;
       const types = requestedTypes.join(',');
 
-      // Compact prompt — schema legend keeps context short to avoid token cutoff
       const prompt = `Buat ${clampedCount} soal pendidikan dalam Bahasa Indonesia.
 Mapel: ${subjectName} | Kelas: ${gradeName} | Topik: ${topicName} | Kesulitan: ${diff}
 Tipe soal (distribusikan merata): ${types}
 
-ATURAN: Semua soal WAJIB hanya tentang ${subjectName} - ${topicName}. Jika melenceng = gagal.
-
+ATURAN: Semua soal WAJIB hanya tentang ${subjectName} - ${topicName}.
 Balas HANYA JSON array, tanpa markdown. Schema per tipe:
-- pilihan_ganda: {"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":10}
+- pilihan_ganda: {"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true}],"points":10}
 - pilihan_ganda_kompleks: sama seperti pilihan_ganda tapi isCorrect=true boleh lebih dari 1, "points":15
-- menjodohkan: {"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."}],"points":20}
+- menjodohkan: {"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."}],"points":20}
+`;
 
-Generate tepat ${clampedCount} soal.`;
+      const finalPrompt = `Anda adalah ahli pembuat soal pendidikan Indonesia. Kembalikan HANYA array JSON yang valid tanpa format markdown atau penjelasan apa pun.
 
+${prompt}`;
+
+      const chatOptions = aiModel ? { model: aiModel } : {};
+      const result = await window.puter.ai.chat(finalPrompt, chatOptions);
       
-      const res = await fetch('/api/ai-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: subjectName,
-          grade: gradeName,
+      const content = typeof result === 'string' ? result : (result?.message?.content || '');
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('Format JSON tidak ditemukan dalam balasan AI');
+      
+      const dataArray = JSON.parse(jsonMatch[0]);
+      
+      const parsed = dataArray.map((q: any, i: number) => {
+        const id = `ai-${Date.now()}-${i}`;
+        return {
+          id,
+          tempId: `temp-${Date.now()}-${i}`,
+          type: q.type || requestedTypes[i % requestedTypes.length] || 'pilihan_ganda',
+          text: q.text || `Soal tentang ${topicName}`,
           difficulty: diff,
-          questionCount: clampedCount,
-          questionTypes: requestedTypes,
-          topic: topicName,
-          prompt,
-          model: aiModel || undefined,
-        }),
+          options: (q.options || []).map((opt: any, oi: number) => ({ ...opt, id: `${id}-opt-${oi}` })),
+          matchingPairs: (q.matchingPairs || []).map((pair: any, pi: number) => ({ ...pair, id: `${id}-p${pi}` })),
+          points: q.points || 10,
+          isSelected: true,
+        };
       });
-
-      if (!res.ok) throw new Error('API error: ' + res.statusText);
-      const data = await res.json();
-      
-      const parsed = data.questions || [];
       
       setGeneratedQuestions(parsed);
-      setSource(data.source || 'ai');
+      setSource('ai');
       setGenerationStep(3);
     } catch (e: any) {
-      console.error(e);
       setGeneratedQuestions([]);
       setSource('error: ' + (e.message || String(e)));
     } finally {
@@ -205,64 +214,51 @@ Generate tepat ${clampedCount} soal.`;
     setIsGenerating(true);
 
     try {
-      // Use server API
+      if (!window.puter) {
+        throw new Error('Puter.js SDK not found.');
+      }
       
+      const isSignedIn = await window.puter.auth.isSignedIn();
+      if (!isSignedIn) {
+        await window.puter.auth.signIn();
+      }
+
       const subjectName = aiSubject === 'custom' ? customSubject : (SUBJECTS.find(s => s.id === aiSubject)?.name || aiSubject || 'General');
       const gradeName = CLASS_GRADES.find(c => c.id === aiGrade)?.name || aiGrade || 'General';
       const topicName = topic || subjectName;
       const diff = question.difficulty;
       const typ = question.type;
 
-      // Compact single-question reroll prompt
       const prompt = `Buat 1 soal pendidikan Bahasa Indonesia tipe "${typ}".
 Mapel: ${subjectName} | Kelas: ${gradeName} | Topik: ${topicName} | Kesulitan: ${diff}
-ATURAN: Soal WAJIB tentang ${subjectName} - ${topicName}.
-
 Balas HANYA JSON array berisi 1 objek. Schema:
-${typ === 'pilihan_ganda' ? `{"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":10}` : ''}
-${typ === 'pilihan_ganda_kompleks' ? `{"type":"pilihan_ganda_kompleks","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":true},{"label":"B","text":"...","isCorrect":true},{"label":"C","text":"...","isCorrect":false},{"label":"D","text":"...","isCorrect":false},{"label":"E","text":"...","isCorrect":false}],"points":15}` : ''}
-${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."},{"premise":"...","response":"..."}],"points":20}` : ''}
-`;
+${typ === 'pilihan_ganda' ? `{"type":"pilihan_ganda","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":false},{"label":"B","text":"...","isCorrect":true}],"points":10}` : ''}
+${typ === 'pilihan_ganda_kompleks' ? `{"type":"pilihan_ganda_kompleks","text":"...","difficulty":"${diff}","options":[{"label":"A","text":"...","isCorrect":true},{"label":"B","text":"...","isCorrect":true}],"points":15}` : ''}
+${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${diff}","matchingPairs":[{"premise":"...","response":"..."}],"points":20}` : ''}`;
 
+      const finalPrompt = `Anda adalah ahli pembuat soal pendidikan Indonesia. Kembalikan HANYA array JSON yang valid tanpa format markdown.
+
+${prompt}`;
+
+      const chatOptions = aiModel ? { model: aiModel } : {};
+      const result = await window.puter.ai.chat(finalPrompt, chatOptions);
+      const content = typeof result === 'string' ? result : (result?.message?.content || '');
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('Format JSON tidak valid');
       
-      const res = await fetch('/api/ai-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: subjectName,
-          grade: gradeName,
-          difficulty: diff,
-          questionCount: 1,
-          questionTypes: [typ],
-          topic: topicName,
-          prompt,
-          model: aiModel || undefined,
-        }),
-      });
-
-      if (!res.ok) throw new Error('API error: ' + res.statusText);
-      const data = await res.json();
-      const parsed = data.questions || [];
-      if (parsed && parsed.length > 0) {
-        const q = parsed[0];
+      const dataArray = JSON.parse(jsonMatch[0]);
+      if (dataArray && dataArray.length > 0) {
+        const q = dataArray[0];
         const id = `ai-${Date.now()}`;
         const newQ: AIGeneratedQuestion = {
           id,
           tempId: `temp-${Date.now()}`,
-          type: (q.type as QuestionType) || question.type,
-          text: (q.text as string) || `Soal tentang ${topicName}`,
+          type: q.type || question.type,
+          text: q.text || `Soal tentang ${topicName}`,
           difficulty: question.difficulty,
-          options: (q.options as AIGeneratedQuestion['options'])?.map((opt, oi) => ({
-            ...opt,
-            id: `${id}-opt-${oi}`,
-          })),
-          matchingPairs: (q.matchingPairs as AIGeneratedQuestion['matchingPairs'])?.map(
-            (pair, pi) => ({
-              ...pair,
-              id: `${id}-p${pi}`,
-            })
-          ),
-          points: (q.points as number) || 10,
+          options: (q.options || []).map((opt: any, oi: number) => ({ ...opt, id: `${id}-opt-${oi}` })),
+          matchingPairs: (q.matchingPairs || []).map((pair: any, pi: number) => ({ ...pair, id: `${id}-p${pi}` })),
+          points: q.points || 10,
           isSelected: true,
         };
 
@@ -273,7 +269,6 @@ ${typ === 'menjodohkan' ? `{"type":"menjodohkan","text":"...","difficulty":"${di
         });
       }
     } catch (e: any) {
-      console.error(e);
       // keep the existing question on failure
     } finally {
       setIsGenerating(false);
